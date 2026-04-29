@@ -1,5 +1,5 @@
 /*
- * time_sync.cpp
+ * nec_ir.cpp
  *
  *      Author: christophoberle
  *
@@ -10,124 +10,270 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 
 #include "sdkconfig.h"
 #include "esp_log.h"
+#include "driver/rmt_tx.h"
+#include "driver/rmt_rx.h"
 
-#include "time_sync.hpp"
+#include "ir_nec_encoder.h"
 
-#include <time.h>
-#include <sys/time.h>
-#include <esp_sntp.h>
+#define EXAMPLE_IR_RESOLUTION_HZ     1000000 // 1MHz resolution, 1 tick = 1us
+#define EXAMPLE_IR_TX_GPIO_NUM       12
+#define EXAMPLE_IR_RX_GPIO_NUM       26
+#define EXAMPLE_IR_NEC_DECODE_MARGIN 200     // Tolerance for parsing RMT symbols into bit stream
 
-TimeSync& TimeSync::getInstance()
+/**
+ * @brief NEC timing spec
+ */
+#define NEC_LEADING_CODE_DURATION_0  9000
+#define NEC_LEADING_CODE_DURATION_1  4500
+#define NEC_PAYLOAD_ZERO_DURATION_0  560
+#define NEC_PAYLOAD_ZERO_DURATION_1  560
+#define NEC_PAYLOAD_ONE_DURATION_0   560
+#define NEC_PAYLOAD_ONE_DURATION_1   1690
+#define NEC_REPEAT_CODE_DURATION_0   9000
+#define NEC_REPEAT_CODE_DURATION_1   2250
+
+
+#include "nec_ir.hpp"
+
+NecIr& NecIr::getInstance()
 {
-    static TimeSync instance; // Guaranteed to be destroyed. Instantiated on first use.
+    static NecIr instance; // Guaranteed to be destroyed. Instantiated on first use.
     return instance;
 }
 
-// Function to set sntp servers
-void TimeSync::setSntpServers( std::string sntpServer1,
-                                 std::string sntpServer2,
-                                 std::string sntpServer3
-                               )
+// Function to set GPIO pins
+void NecIr::setGpioPins( uint16_t txPin,
+                         uint16_t rcPin)
 {
-    ESP_LOGI(tag.c_str(), "Set SNTP srvers");
-    if(sntpServer1 != "") this->sntpServer1 = sntpServer1;
-    if(sntpServer2 != "") this->sntpServer2 = sntpServer2;
-    if(sntpServer3 != "") this->sntpServer3 = sntpServer3;
+    ESP_LOGI(tag.c_str(), "Set GPIO pins");
+    this->txPin = txPin;
+    this->rcPin = rcPin;
 }
 
-// Function to set syncIntervalMs
-void TimeSync::setSyncIntervalMs(uint32_t syncIntervalMs)
- {
-     ESP_LOGI(tag.c_str(), "Setting syncIntervalMs to: %lu", syncIntervalMs);
-     this->syncIntervalMs = syncIntervalMs;
- }
-
-// Function to get syncIntervalMs
-uint32_t TimeSync::getSyncIntervalMs()
+extern "C" static bool example_rmt_rx_done_callback(rmt_channel_handle_t channel, const rmt_rx_done_event_data_t *edata, void *user_data)
 {
-    return this->syncIntervalMs;
+    BaseType_t high_task_wakeup = pdFALSE;
+    QueueHandle_t receive_queue = (QueueHandle_t)user_data;
+    // send the received RMT symbols to the parser task
+    xQueueSendFromISR(receive_queue, edata, &high_task_wakeup);
+    return high_task_wakeup == pdTRUE;
 }
 
-// Function to test whether time is synchronized
-bool TimeSync::isSynchronized()
+// Function to initialize the NEC IR RMT
+void NecIr::initialize()
 {
-    return this->timeSynchronized;
+    ESP_LOGI(tag.c_str(), "Initializing NEC IR RMT");
+
+    ESP_LOGI(tag.c_str(), "create RMT RX channel");
+    rmt_rx_channel_config_t rx_channel_cfg = {
+        .clk_src = RMT_CLK_SRC_DEFAULT,
+        .resolution_hz = EXAMPLE_IR_RESOLUTION_HZ,
+        .mem_block_symbols = 64, // amount of RMT symbols that the channel can store at a time
+        .gpio_num = EXAMPLE_IR_RX_GPIO_NUM,
+    };
+    rmt_channel_handle_t rx_channel = NULL;
+    ESP_ERROR_CHECK(rmt_new_rx_channel(&rx_channel_cfg, &rx_channel));
+
+    ESP_LOGI(tag.c_str(), "register RX done callback");
+    QueueHandle_t receive_queue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
+    assert(receive_queue);
+    rmt_rx_event_callbacks_t cbs = {
+        .on_recv_done = example_rmt_rx_done_callback,
+    };
+    ESP_ERROR_CHECK(rmt_rx_register_event_callbacks(rx_channel, &cbs, receive_queue));
+
+    // the following timing requirement is based on NEC protocol
+    rmt_receive_config_t receive_config = {
+        .signal_range_min_ns = 1250,     // the shortest duration for NEC signal is 560us, 1250ns < 560us, valid signal won't be treated as noise
+        .signal_range_max_ns = 12000000, // the longest duration for NEC signal is 9000us, 12000000ns > 9000us, the receive won't stop early
+    };
+
+    ESP_LOGI(tag.c_str(), "create RMT TX channel");
+    rmt_tx_channel_config_t tx_channel_cfg = {
+        .clk_src = RMT_CLK_SRC_DEFAULT,
+        .resolution_hz = EXAMPLE_IR_RESOLUTION_HZ,
+        .mem_block_symbols = 64, // amount of RMT symbols that the channel can store at a time
+        .trans_queue_depth = 4,  // number of transactions that allowed to pending in the background, this example won't queue multiple transactions, so queue depth > 1 is sufficient
+        .gpio_num = EXAMPLE_IR_TX_GPIO_NUM,
+    };
+    rmt_channel_handle_t tx_channel = NULL;
+    ESP_ERROR_CHECK(rmt_new_tx_channel(&tx_channel_cfg, &tx_channel));
+
+    ESP_LOGI(tag.c_str(), "modulate carrier to TX channel");
+    rmt_carrier_config_t carrier_cfg = {
+        .duty_cycle = 0.33,
+        .frequency_hz = 38000, // 38KHz
+    };
+    ESP_ERROR_CHECK(rmt_apply_carrier(tx_channel, &carrier_cfg));
+
+    // this example won't send NEC frames in a loop
+    rmt_transmit_config_t transmit_config = {
+        .loop_count = 0, // no loop
+    };
+
+    ESP_LOGI(tag.c_str(), "install IR NEC encoder");
+    ir_nec_encoder_config_t nec_encoder_cfg = {
+        .resolution = EXAMPLE_IR_RESOLUTION_HZ,
+    };
+    rmt_encoder_handle_t nec_encoder = NULL;
+    ESP_ERROR_CHECK(rmt_new_ir_nec_encoder(&nec_encoder_cfg, &nec_encoder));
+
+    ESP_LOGI(tag.c_str(), "enable RMT TX and RX channels");
+    ESP_ERROR_CHECK(rmt_enable(tx_channel));
+    ESP_ERROR_CHECK(rmt_enable(rx_channel));
 }
 
-// Function to initialize SNTP  with multiple servers
-void TimeSync::initializeSntp()
+// Function to transmit a NEC command frame
+void NecIr::transmitNecCommandFrame(uint16_t address, uint16_t code)
 {
-    ESP_LOGI(tag.c_str(), "Initializing SNTP");
-    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-
-    // Set multiple NTP servers
-    esp_sntp_setservername(0, this->sntpServer1.c_str()); // Primary server
-    esp_sntp_setservername(1, this->sntpServer2.c_str()); // Secondary server
-    esp_sntp_setservername(2, this->sntpServer3.c_str()); // Tertiary server
-
-    esp_sntp_init();
+    ESP_LOGI(tag.c_str(), "Transmit a NEC command frame");
 }
 
-// Function to obtain and print time
-void TimeSync::obtainTime(void)
+// Function to transmit a NEC repeat frame
+void NecIr::transmitNecRepeatFrame()
 {
-    // Wait for time to be set
-    time_t now = 0;
-    struct tm timeinfo = {
-                           0, // tm_sec	int	seconds after the minute	0-60*
-                           0, // tm_min	int	minutes after the hour	0-59
-                           0, // tm_hour	int	hours since midnight	0-23
-                           0, // tm_mday	int	day of the month	1-31
-                           0, // tm_mon	int	months since January	0-11
-                           0, // tm_year	int	years since 1900
-                           0, // tm_wday	int	days since Sunday	0-6
-                           0, // tm_yday	int	days since January 1	0-365
-                           0  // tm_isdst	int	Daylight Saving Time flag
-                         };
-    int retry = 0;
-    const int retry_count = 10;
+    ESP_LOGI(tag.c_str(), "Transmit a NEC repeat frame");
+}
 
-    while (timeinfo.tm_year < (2025 - 1900) && ++retry < retry_count)
-    {
-        ESP_LOGD(tag.c_str(), "Waiting for system time to be set... (%d/%d)", retry, retry_count);
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
-        time(&now);
-        localtime_r(&now, &timeinfo);
+/**
+ * @brief Check whether a duration is within expected range
+ */
+// static inline
+bool NecIr::nec_check_in_range(uint32_t signal_duration, uint32_t spec_duration)
+{
+    return (signal_duration < (spec_duration + EXAMPLE_IR_NEC_DECODE_MARGIN)) &&
+           (signal_duration > (spec_duration - EXAMPLE_IR_NEC_DECODE_MARGIN));
+}
+
+/**
+ * @brief Check whether a RMT symbol represents NEC logic zero
+ */
+// static
+bool NecIr::nec_parse_logic0(rmt_symbol_word_t *rmt_nec_symbols)
+{
+    return nec_check_in_range(rmt_nec_symbols->duration0, NEC_PAYLOAD_ZERO_DURATION_0) &&
+           nec_check_in_range(rmt_nec_symbols->duration1, NEC_PAYLOAD_ZERO_DURATION_1);
+}
+
+/**
+ * @brief Check whether a RMT symbol represents NEC logic one
+ */
+// static
+bool NecIr::nec_parse_logic1(rmt_symbol_word_t *rmt_nec_symbols)
+{
+    return nec_check_in_range(rmt_nec_symbols->duration0, NEC_PAYLOAD_ONE_DURATION_0) &&
+           nec_check_in_range(rmt_nec_symbols->duration1, NEC_PAYLOAD_ONE_DURATION_1);
+}
+
+/**
+ * @brief Decode RMT symbols into NEC address and command
+ */
+//static
+bool NecIr::nec_parse_frame(rmt_symbol_word_t *rmt_nec_symbols)
+{
+    rmt_symbol_word_t *cur = rmt_nec_symbols;
+    uint16_t address = 0;
+    uint16_t command = 0;
+    bool valid_leading_code = nec_check_in_range(cur->duration0, NEC_LEADING_CODE_DURATION_0) &&
+                              nec_check_in_range(cur->duration1, NEC_LEADING_CODE_DURATION_1);
+    if (!valid_leading_code) {
+        return false;
+    }
+    cur++;
+    for (int i = 0; i < 16; i++) {
+        if (nec_parse_logic1(cur)) {
+            address |= 1 << i;
+        } else if (nec_parse_logic0(cur)) {
+            address &= ~(1 << i);
+        } else {
+            return false;
+        }
+        cur++;
+    }
+    for (int i = 0; i < 16; i++) {
+        if (nec_parse_logic1(cur)) {
+            command |= 1 << i;
+        } else if (nec_parse_logic0(cur)) {
+            command &= ~(1 << i);
+        } else {
+            return false;
+        }
+        cur++;
+    }
+    // save address and command
+    s_nec_code_address = address;
+    s_nec_code_command = command;
+    return true;
+}
+
+/**
+ * @brief Check whether the RMT symbols represent NEC repeat code
+ */
+// static
+bool NecIr::nec_parse_frame_repeat(rmt_symbol_word_t *rmt_nec_symbols)
+{
+    return nec_check_in_range(rmt_nec_symbols->duration0, NEC_REPEAT_CODE_DURATION_0) &&
+           nec_check_in_range(rmt_nec_symbols->duration1, NEC_REPEAT_CODE_DURATION_1);
+}
+
+/**
+ * @brief Decode RMT symbols into NEC scan code and print the result
+ */
+// static
+void example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t symbol_num)
+{
+    printf("NEC frame start---\r\n");
+    for (size_t i = 0; i < symbol_num; i++) {
+        printf("{%d:%d},{%d:%d}\r\n", rmt_nec_symbols[i].level0, rmt_nec_symbols[i].duration0,
+               rmt_nec_symbols[i].level1, rmt_nec_symbols[i].duration1);
+    }
+    printf("---NEC frame end: ");
+    // decode RMT symbols
+    switch (symbol_num) {
+    case 34: // NEC normal frame
+        if (nec_parse_frame(rmt_nec_symbols)) {
+            printf("Address=%04X, Command=%04X\r\n\r\n", s_nec_code_address, s_nec_code_command);
+        }
+        break;
+    case 2: // NEC repeat frame
+        if (nec_parse_frame_repeat(rmt_nec_symbols)) {
+            printf("Address=%04X, Command=%04X, repeat\r\n\r\n", s_nec_code_address, s_nec_code_command);
+        }
+        break;
+    default:
+        printf("Unknown NEC frame\r\n\r\n");
+        break;
+    }
+}
+
+
+
+/*
+
+    // save the received RMT symbols
+    rmt_symbol_word_t raw_symbols[64]; // 64 symbols should be sufficient for a standard NEC frame
+    rmt_rx_done_event_data_t rx_data;
+    // ready to receive
+    ESP_ERROR_CHECK(rmt_receive(rx_channel, raw_symbols, sizeof(raw_symbols), &receive_config));
+    while (1) {
+        // wait for RX done signal
+        if (xQueueReceive(receive_queue, &rx_data, pdMS_TO_TICKS(1000)) == pdPASS) {
+            // parse the receive symbols and print the result
+            example_parse_nec_frame(rx_data.received_symbols, rx_data.num_symbols);
+            // start receive again
+            ESP_ERROR_CHECK(rmt_receive(rx_channel, raw_symbols, sizeof(raw_symbols), &receive_config));
+        } else {
+            // timeout, transmit predefined IR NEC packets
+            const ir_nec_scan_code_t scan_code = {
+                .address = 0x0440,
+                .command = 0x3003,
+            };
+            ESP_ERROR_CHECK(rmt_transmit(tx_channel, nec_encoder, &scan_code, sizeof(scan_code), &transmit_config));
+        }
     }
 
-    if (retry == retry_count)
-    {
-        ESP_LOGE(tag.c_str(), "Failed to obtain time.");
-        return;
-    }
-
-    ESP_LOGI(tag.c_str(), "Time synchronized.");
-    this->timeSynchronized = true;
-}
-
-// Function to set timezone
-void TimeSync::setTimezone(std::string timezone)
-{
-    ESP_LOGI(tag.c_str(), "Setting timezone to: %s", timezone.c_str());
-    setenv("TZ", timezone.c_str(), 1); // Set the TZ environment variable
-    tzset(); // Apply the timezone change
-}
-
-// Print current calendar information
-void TimeSync::printCalendar()
-{
-    time_t now;
-    struct tm timeinfo;
-    char buffer[64];
-
-    time(&now);
-    localtime_r(&now, &timeinfo);
-
-    strftime(buffer, sizeof(buffer), "Date: %Y-%m-%d, Time: %H:%M:%S", &timeinfo);
-    ESP_LOGI(tag.c_str(), "%s", buffer);
-    ESP_LOGI(tag.c_str(), "Weekday: %d (0=Sunday, 6=Saturday)", timeinfo.tm_wday);
-    ESP_LOGI(tag.c_str(), "Day of the year: %d", timeinfo.tm_yday + 1);
-}
+*/
