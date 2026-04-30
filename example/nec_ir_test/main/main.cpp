@@ -24,17 +24,31 @@ extern "C" void app_main(void)
     necIr->setGpioPins(12,26); // set the GPIO pins
     necIr->initialize(); // initialize NEC IR RMT
 
-    timeSync->setSyncIntervalMs(30000); // syncIntervalMs set to 30 sec, default for normal operation is 5 mins
 
-    xTaskCreate(timeTask, "timeTask", 4096, NULL, 5, NULL);
-
-    while(!timeSync->isSynchronized()) {
-        ESP_LOGI(tag, "time is not yet synchronized");
+    // transmitter test
+    ESP_LOGI(tag, "transmitNecCommandFrame");
+    //while(1) {
+        necIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
         vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 second
+        necIr->transmitNecRepeatFrame();
+        vTaskDelay(pdMS_TO_TICKS(3000)); // delay 1 second
+    //}
+
+    necIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
+    vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 second
+    necIr->transmitNecRepeatFrame();
+
+    //vTaskDelay(pdMS_TO_TICKS(30000)); // delay 30 seconds
+
+    //necIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
+    //vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 second
+    //necIr->transmitNecRepeatFrame();
+
+
+    // receiver test
+    while(1) {
+        ESP_LOGI(tag, "receiveNecFrame");
+        necIr->receiveNecFrame();
     }
 
-    while(1) {
-        ESP_LOGI(tag, "wait 10 seconds");
-        vTaskDelay(pdMS_TO_TICKS(10000)); // delay 10 seconds
-    }
 }

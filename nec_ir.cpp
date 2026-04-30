@@ -14,8 +14,6 @@
 
 #include "sdkconfig.h"
 #include "esp_log.h"
-#include "driver/rmt_tx.h"
-#include "driver/rmt_rx.h"
 
 #include "ir_nec_encoder.h"
 
@@ -47,14 +45,16 @@ NecIr& NecIr::getInstance()
 
 // Function to set GPIO pins
 void NecIr::setGpioPins( uint16_t txPin,
-                         uint16_t rcPin)
+                         uint16_t rxPin)
 {
     ESP_LOGI(tag.c_str(), "Set GPIO pins");
     this->txPin = txPin;
-    this->rcPin = rcPin;
+    this->rxPin = rxPin;
 }
 
-extern "C" static bool example_rmt_rx_done_callback(rmt_channel_handle_t channel, const rmt_rx_done_event_data_t *edata, void *user_data)
+extern "C"
+// static
+bool example_rmt_rx_done_callback(rmt_channel_handle_t channel, const rmt_rx_done_event_data_t *edata, void *user_data)
 {
     BaseType_t high_task_wakeup = pdFALSE;
     QueueHandle_t receive_queue = (QueueHandle_t)user_data;
@@ -70,67 +70,65 @@ void NecIr::initialize()
 
     ESP_LOGI(tag.c_str(), "create RMT RX channel");
     rmt_rx_channel_config_t rx_channel_cfg = {
+        .gpio_num = (gpio_num_t) this->rxPin,
         .clk_src = RMT_CLK_SRC_DEFAULT,
         .resolution_hz = EXAMPLE_IR_RESOLUTION_HZ,
         .mem_block_symbols = 64, // amount of RMT symbols that the channel can store at a time
-        .gpio_num = EXAMPLE_IR_RX_GPIO_NUM,
+        .intr_priority = 0,
+        .flags = {
+            .invert_in = 0,
+            .with_dma = 0, // ESP32: DMA not supported
+            .allow_pd = 0, // ESP32: not able to power down in light sleep
+        }
     };
-    rmt_channel_handle_t rx_channel = NULL;
     ESP_ERROR_CHECK(rmt_new_rx_channel(&rx_channel_cfg, &rx_channel));
 
     ESP_LOGI(tag.c_str(), "register RX done callback");
-    QueueHandle_t receive_queue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
+    receive_queue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
     assert(receive_queue);
     rmt_rx_event_callbacks_t cbs = {
         .on_recv_done = example_rmt_rx_done_callback,
     };
     ESP_ERROR_CHECK(rmt_rx_register_event_callbacks(rx_channel, &cbs, receive_queue));
 
-    // the following timing requirement is based on NEC protocol
-    rmt_receive_config_t receive_config = {
-        .signal_range_min_ns = 1250,     // the shortest duration for NEC signal is 560us, 1250ns < 560us, valid signal won't be treated as noise
-        .signal_range_max_ns = 12000000, // the longest duration for NEC signal is 9000us, 12000000ns > 9000us, the receive won't stop early
-    };
-
     ESP_LOGI(tag.c_str(), "create RMT TX channel");
     rmt_tx_channel_config_t tx_channel_cfg = {
+        .gpio_num = (gpio_num_t) this->txPin,
         .clk_src = RMT_CLK_SRC_DEFAULT,
         .resolution_hz = EXAMPLE_IR_RESOLUTION_HZ,
         .mem_block_symbols = 64, // amount of RMT symbols that the channel can store at a time
         .trans_queue_depth = 4,  // number of transactions that allowed to pending in the background, this example won't queue multiple transactions, so queue depth > 1 is sufficient
-        .gpio_num = EXAMPLE_IR_TX_GPIO_NUM,
+        .intr_priority = 0,
+        .flags = {
+            .invert_out = 1,
+            .with_dma = 0, // ESP32: DMA not supported
+            .allow_pd = 0, // ESP32: not able to power down in light sleep
+            .init_level = 1,
+        }
     };
-    rmt_channel_handle_t tx_channel = NULL;
     ESP_ERROR_CHECK(rmt_new_tx_channel(&tx_channel_cfg, &tx_channel));
 
     ESP_LOGI(tag.c_str(), "modulate carrier to TX channel");
     rmt_carrier_config_t carrier_cfg = {
-        .duty_cycle = 0.33,
         .frequency_hz = 38000, // 38KHz
+        .duty_cycle = 0.33,
+        .flags = {
+            .polarity_active_low = 1,
+            .always_on = 1,
+        }
     };
     ESP_ERROR_CHECK(rmt_apply_carrier(tx_channel, &carrier_cfg));
-
-    // this example won't send NEC frames in a loop
-    rmt_transmit_config_t transmit_config = {
-        .loop_count = 0, // no loop
-    };
 
     ESP_LOGI(tag.c_str(), "install IR NEC encoder");
     ir_nec_encoder_config_t nec_encoder_cfg = {
         .resolution = EXAMPLE_IR_RESOLUTION_HZ,
     };
-    rmt_encoder_handle_t nec_encoder = NULL;
+
     ESP_ERROR_CHECK(rmt_new_ir_nec_encoder(&nec_encoder_cfg, &nec_encoder));
 
     ESP_LOGI(tag.c_str(), "enable RMT TX and RX channels");
     ESP_ERROR_CHECK(rmt_enable(tx_channel));
     ESP_ERROR_CHECK(rmt_enable(rx_channel));
-}
-
-// Function to transmit a NEC command frame
-void NecIr::transmitNecCommandFrame(uint16_t address, uint16_t code)
-{
-    ESP_LOGI(tag.c_str(), "Transmit a NEC command frame");
 }
 
 // Function to transmit a NEC repeat frame
@@ -224,7 +222,7 @@ bool NecIr::nec_parse_frame_repeat(rmt_symbol_word_t *rmt_nec_symbols)
  * @brief Decode RMT symbols into NEC scan code and print the result
  */
 // static
-void example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t symbol_num)
+void NecIr::example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t symbol_num)
 {
     printf("NEC frame start---\r\n");
     for (size_t i = 0; i < symbol_num; i++) {
@@ -233,15 +231,16 @@ void example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t symbol_n
     }
     printf("---NEC frame end: ");
     // decode RMT symbols
+    printf("symbol_num=%i ", symbol_num);
     switch (symbol_num) {
     case 34: // NEC normal frame
         if (nec_parse_frame(rmt_nec_symbols)) {
-            printf("Address=%04X, Command=%04X\r\n\r\n", s_nec_code_address, s_nec_code_command);
+            printf("NEC Address=%04X, Command=%04X\r\n\r\n", s_nec_code_address, s_nec_code_command);
         }
         break;
     case 2: // NEC repeat frame
         if (nec_parse_frame_repeat(rmt_nec_symbols)) {
-            printf("Address=%04X, Command=%04X, repeat\r\n\r\n", s_nec_code_address, s_nec_code_command);
+            printf("NEC Address=%04X, Command=%04X, repeat\r\n\r\n", s_nec_code_address, s_nec_code_command);
         }
         break;
     default:
@@ -250,30 +249,31 @@ void example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t symbol_n
     }
 }
 
-
-
-/*
-
+void NecIr::receiveNecFrame() {
     // save the received RMT symbols
     rmt_symbol_word_t raw_symbols[64]; // 64 symbols should be sufficient for a standard NEC frame
     rmt_rx_done_event_data_t rx_data;
     // ready to receive
     ESP_ERROR_CHECK(rmt_receive(rx_channel, raw_symbols, sizeof(raw_symbols), &receive_config));
-    while (1) {
-        // wait for RX done signal
-        if (xQueueReceive(receive_queue, &rx_data, pdMS_TO_TICKS(1000)) == pdPASS) {
-            // parse the receive symbols and print the result
-            example_parse_nec_frame(rx_data.received_symbols, rx_data.num_symbols);
-            // start receive again
-            ESP_ERROR_CHECK(rmt_receive(rx_channel, raw_symbols, sizeof(raw_symbols), &receive_config));
-        } else {
-            // timeout, transmit predefined IR NEC packets
-            const ir_nec_scan_code_t scan_code = {
-                .address = 0x0440,
-                .command = 0x3003,
-            };
-            ESP_ERROR_CHECK(rmt_transmit(tx_channel, nec_encoder, &scan_code, sizeof(scan_code), &transmit_config));
-        }
+
+    // wait for RX done signal
+    while (xQueueReceive(receive_queue, &rx_data, pdMS_TO_TICKS(1000)) != pdPASS) {
+       ESP_LOGI(this->tag.c_str(), "wait for RX done signal");
     }
 
-*/
+    // parse the receive symbols and print the result
+    example_parse_nec_frame(rx_data.received_symbols, rx_data.num_symbols);
+}
+
+// Function to transmit a NEC command frame
+void NecIr::transmitNecCommandFrame(uint16_t address, uint16_t code)
+{
+    ESP_LOGI(tag.c_str(), "Transmit a NEC command frame address=%04X, code=%04X", address, code);
+
+    const ir_nec_scan_code_t scan_code = {
+        .address = address,
+        .command = code,
+    };
+    ESP_ERROR_CHECK(rmt_transmit(tx_channel, nec_encoder, &scan_code, sizeof(scan_code), &transmit_config));
+}
+

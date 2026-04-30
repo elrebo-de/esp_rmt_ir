@@ -112,29 +112,29 @@ esp_err_t rmt_new_ir_nec_encoder(const ir_nec_encoder_config_t *config, rmt_enco
 
     // construct the leading code and ending code with RMT symbol format
     nec_encoder->nec_leading_symbol = (rmt_symbol_word_t) {
-        .level0 = 1,
+        .level0 = 0,
         .duration0 = 9000ULL * config->resolution / 1000000,
-        .level1 = 0,
+        .level1 = 1,
         .duration1 = 4500ULL * config->resolution / 1000000,
     };
     nec_encoder->nec_ending_symbol = (rmt_symbol_word_t) {
-        .level0 = 1,
+        .level0 = 0,
         .duration0 = 560 * config->resolution / 1000000,
-        .level1 = 0,
+        .level1 = 1,
         .duration1 = 0x7FFF,
     };
 
     rmt_bytes_encoder_config_t bytes_encoder_config = {
         .bit0 = {
-            .level0 = 1,
+            .level0 = 0,
             .duration0 = 560 * config->resolution / 1000000, // T0H=560us
-            .level1 = 0,
+            .level1 = 1,
             .duration1 = 560 * config->resolution / 1000000, // T0L=560us
         },
         .bit1 = {
-            .level0 = 1,
+            .level0 = 0,
             .duration0 = 560 * config->resolution / 1000000,  // T1H=560us
-            .level1 = 0,
+            .level1 = 1,
             .duration1 = 1690 * config->resolution / 1000000, // T1L=1690us
         },
     };
