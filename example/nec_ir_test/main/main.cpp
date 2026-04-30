@@ -27,22 +27,15 @@ extern "C" void app_main(void)
 
     // transmitter test
     ESP_LOGI(tag, "transmitNecCommandFrame");
-    //while(1) {
-        necIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
-        vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 second
-        necIr->transmitNecRepeatFrame();
-        vTaskDelay(pdMS_TO_TICKS(3000)); // delay 1 second
-    //}
-
     necIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
     vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 second
     necIr->transmitNecRepeatFrame();
 
-    //vTaskDelay(pdMS_TO_TICKS(30000)); // delay 30 seconds
+    vTaskDelay(pdMS_TO_TICKS(30000)); // delay 30 seconds
 
-    //necIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
-    //vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 second
-    //necIr->transmitNecRepeatFrame();
+    necIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
+    vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 second
+    necIr->transmitNecRepeatFrame();
 
 
     // receiver test
