@@ -96,6 +96,10 @@ static esp_err_t rmt_ir_nec_encoder_reset(rmt_encoder_t *encoder)
     return ESP_OK;
 }
 
+// ToDo: rmt_new_ir_encoder is not aware of .invert_out flag in rmt_tx_channel_config_t.flags:
+// hot fix:
+// changed .level0 = 1 to .level0 = 0 and .level1 = 0 to .level1 = 1
+// to enable encoding for .invert_out = 1, which did not work with the original code
 esp_err_t rmt_new_ir_nec_encoder(const ir_nec_encoder_config_t *config, rmt_encoder_handle_t *ret_encoder)
 {
     esp_err_t ret = ESP_OK;
