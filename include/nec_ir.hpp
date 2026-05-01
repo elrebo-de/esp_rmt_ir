@@ -14,7 +14,7 @@
 #include "driver/rmt_rx.h"
 
 /* class NecIr
-   Class to implement an IR transmitter / receiver which uses the "NEC protocl".
+   Class to implement an IR transmitter / receiver which uses the "NEC protocol".
 
    The original code is taken from the GitHub repository https://github.com/espressif/esp-idf.git
    from file esp-idf/examples/peripherals/rmt/ir_nec_transceiver.
@@ -59,24 +59,6 @@ class NecIr
         rmt_encoder_handle_t nec_encoder = NULL;
 
         QueueHandle_t receive_queue;
-
-        // the following timing requirement is based on NEC protocol
-        rmt_receive_config_t receive_config = {
-            .signal_range_min_ns = 1250,     // the shortest duration for NEC signal is 560us, 1250ns < 560us, valid signal won't be treated as noise
-            .signal_range_max_ns = 12000000, // the longest duration for NEC signal is 9000us, 12000000ns > 9000us, the receive won't stop early
-            .flags = {
-                .en_partial_rx = 0, // ESP32: partial receive not supported
-            }
-        };
-
-        // this example won't send NEC frames in a loop
-        rmt_transmit_config_t transmit_config = {
-            .loop_count = 0, // no loop
-            .flags = {
-                .eot_level = 1,
-                .queue_nonblocking = 1,
-            }
-        };
 
         /**
          * @brief Saving NEC decode results

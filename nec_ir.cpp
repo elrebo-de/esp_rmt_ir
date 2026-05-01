@@ -122,6 +122,7 @@ void NecIr::initialize()
     ESP_LOGI(tag.c_str(), "install IR NEC encoder");
     ir_nec_encoder_config_t nec_encoder_cfg = {
         .resolution = EXAMPLE_IR_RESOLUTION_HZ,
+        .invert_out = true,
     };
 
     ESP_ERROR_CHECK(rmt_new_ir_nec_encoder(&nec_encoder_cfg, &nec_encoder));
@@ -129,12 +130,6 @@ void NecIr::initialize()
     ESP_LOGI(tag.c_str(), "enable RMT TX and RX channels");
     ESP_ERROR_CHECK(rmt_enable(tx_channel));
     ESP_ERROR_CHECK(rmt_enable(rx_channel));
-}
-
-// Function to transmit a NEC repeat frame
-void NecIr::transmitNecRepeatFrame()
-{
-    ESP_LOGI(tag.c_str(), "Transmit a NEC repeat frame");
 }
 
 /**
@@ -250,6 +245,15 @@ void NecIr::example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t s
 }
 
 void NecIr::receiveNecFrame() {
+    // the following timing requirement is based on NEC protocol
+    rmt_receive_config_t receive_config = {
+        .signal_range_min_ns = 1250,     // the shortest duration for NEC signal is 560us, 1250ns < 560us, valid signal won't be treated as noise
+        .signal_range_max_ns = 12000000, // the longest duration for NEC signal is 9000us, 12000000ns > 9000us, the receive won't stop early
+        .flags = {
+            .en_partial_rx = 0, // ESP32: partial receive not supported
+        }
+    };
+
     // save the received RMT symbols
     rmt_symbol_word_t raw_symbols[64]; // 64 symbols should be sufficient for a standard NEC frame
     rmt_rx_done_event_data_t rx_data;
@@ -270,10 +274,26 @@ void NecIr::transmitNecCommandFrame(uint16_t address, uint16_t code)
 {
     ESP_LOGI(tag.c_str(), "Transmit a NEC command frame address=%04X, code=%04X", address, code);
 
+    // this example won't send NEC frames in a loop
+    rmt_transmit_config_t transmit_config = {
+        .loop_count = 0, // no loop
+        .flags = {
+            .eot_level = 1,
+            .queue_nonblocking = 1,
+        }
+    };
+
     const ir_nec_scan_code_t scan_code = {
         .address = address,
         .command = code,
     };
     ESP_ERROR_CHECK(rmt_transmit(tx_channel, nec_encoder, &scan_code, sizeof(scan_code), &transmit_config));
 }
+
+// Function to transmit a NEC repeat frame
+void NecIr::transmitNecRepeatFrame()
+{
+    ESP_LOGI(tag.c_str(), "Transmit a NEC repeat frame (not yet implemented!)");
+}
+
 

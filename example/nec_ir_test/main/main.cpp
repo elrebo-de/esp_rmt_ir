@@ -34,6 +34,21 @@ extern "C" void callback_onBoardButton_BUTTON_SINGLE_CLICK(void *arg, void *data
     }
 }
 
+// Callback function for BUTTON_DOUBLE_CLICK event from onBoardButton
+extern "C" void callback_onBoardButton_BUTTON_DOUBLE_CLICK(void *arg, void *data)
+{
+    ESP_LOGI("onBoardButton Callback", "for Event BUTTON_DOUBLE_CLICK called!");
+
+    iot_button_print_event((button_handle_t)arg);
+
+    // bei jedem BUTTON_DOUBLE_CLICK wird der state umgeschaltet
+    state = !state;
+    NecIr* necIr = &necIr->getInstance(); // get the Singleton instance
+    necIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
+    vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+    necIr->transmitNecCommandFrame(0x857a, 0xe916); // "Tuner"
+}
+
 extern "C" void app_main(void)
 {
     // short delay to reconnect logging
@@ -57,6 +72,7 @@ extern "C" void app_main(void)
 	);
 
     onBoardButton.RegisterCallbackForEvent(BUTTON_SINGLE_CLICK, callback_onBoardButton_BUTTON_SINGLE_CLICK);
+    onBoardButton.RegisterCallbackForEvent(BUTTON_DOUBLE_CLICK, callback_onBoardButton_BUTTON_DOUBLE_CLICK);
 
     // transmitter test
     //ESP_LOGI(tag, "transmitNecCommandFrame");
@@ -76,7 +92,7 @@ extern "C" void app_main(void)
     //    necIr->receiveNecFrame();
 
     while(1) {
-        vTaskDelay(pdMS_TO_TICKS(3000)); // delay 30 second
+        vTaskDelay(pdMS_TO_TICKS(30000)); // delay 30 second
     }
 
 }

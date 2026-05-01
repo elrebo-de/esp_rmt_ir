@@ -25,6 +25,7 @@ typedef struct {
  */
 typedef struct {
     uint32_t resolution; /*!< Encoder resolution, in Hz */
+    bool invert_out; // flag, whether output signal is inverted
 } ir_nec_encoder_config_t;
 
 /**
