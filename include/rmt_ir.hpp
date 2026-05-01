@@ -13,8 +13,10 @@
 #include "driver/rmt_tx.h"
 #include "driver/rmt_rx.h"
 
+#include "nec_protocol.hpp"
+
 /* class RmtIr
-   Class to implement an IR transmitter / receiver which uses the "RMT protocol".
+   Class to implement an IR transmitter / receiver which uses different protocols.
 
    The original code is taken from the GitHub repository https://github.com/espressif/esp-idf.git
    from file esp-idf/examples/peripherals/rmt/ir_nec_transceiver.
@@ -33,19 +35,15 @@ class RmtIr
                         );
 
         void initialize();
+
         void transmitNecCommandFrame(uint16_t address, uint16_t code);
         void transmitNecRepeatFrame();
         void receiveNecFrame();
 
+        NecProtocol *necProtocol;
+
     private:
         RmtIr() {}                 // Constructor
-
-        bool nec_check_in_range(uint32_t signal_duration, uint32_t spec_duration);
-        bool nec_parse_logic0(rmt_symbol_word_t *rmt_nec_symbols);
-        bool nec_parse_logic1(rmt_symbol_word_t *rmt_nec_symbols);
-        bool nec_parse_frame(rmt_symbol_word_t *rmt_nec_symbols);
-        bool nec_parse_frame_repeat(rmt_symbol_word_t *rmt_nec_symbols);
-        void example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t symbol_num);
 
         std::string tag = "RmtIr";
         uint16_t txPin = 12; // M5 Atom Lite Builtin IR LED
@@ -55,8 +53,6 @@ class RmtIr
 
         rmt_channel_handle_t rx_channel = NULL;
         rmt_channel_handle_t tx_channel = NULL;
-
-        rmt_encoder_handle_t nec_encoder = NULL;
 
         QueueHandle_t receive_queue;
 

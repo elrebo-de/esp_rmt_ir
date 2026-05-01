@@ -1,4 +1,4 @@
-idf_component_register( SRCS "rmt_ir.cpp" "ir_nec_encoder.c"
+idf_component_register( SRCS "rmt_ir.cpp" "nec_protocol.cpp" "ir_nec_encoder.c"
                         INCLUDE_DIRS "include"
                         REQUIRES "driver"
                                  "esp_timer"

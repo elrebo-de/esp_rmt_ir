@@ -7,12 +7,12 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 
-#include "nec_ir.hpp"
+#include "rmt_ir.hpp"
 #include "generic_button.hpp"
 #include <iot_button.h>
 
 
-static const char *tag = "nec ir test";
+static const char *tag = "rmt ir test";
 
 bool state = false;
 
