@@ -1,20 +1,20 @@
 /*
- * nec_ir.hpp
+ * rmt_ir.hpp
  *
  *      Author: christophoberle
  *
  * this work is licenced under the Apache 2.0 licence
  */
 
-#ifndef NEC_IR_HPP_
-#define NEC_IR_HPP_
+#ifndef RMT_IR_HPP_
+#define RMT_IR_HPP_
 
 #include <string>
 #include "driver/rmt_tx.h"
 #include "driver/rmt_rx.h"
 
-/* class NecIr
-   Class to implement an IR transmitter / receiver which uses the "NEC protocol".
+/* class RmtIr
+   Class to implement an IR transmitter / receiver which uses the "RMT protocol".
 
    The original code is taken from the GitHub repository https://github.com/espressif/esp-idf.git
    from file esp-idf/examples/peripherals/rmt/ir_nec_transceiver.
@@ -24,10 +24,10 @@
    Retrieved 2026-02-01, License - CC BY-SA 4.0
 */
 
-class NecIr
+class RmtIr
 {
     public:
-        static NecIr& getInstance();
+        static RmtIr& getInstance();
         void setGpioPins( uint16_t txPin,  // GPIO pin for IR transmitter
                           uint16_t rxPin   // GPIO pin for IR receiver
                         );
@@ -38,7 +38,7 @@ class NecIr
         void receiveNecFrame();
 
     private:
-        NecIr() {}                 // Constructor
+        RmtIr() {}                 // Constructor
 
         bool nec_check_in_range(uint32_t signal_duration, uint32_t spec_duration);
         bool nec_parse_logic0(rmt_symbol_word_t *rmt_nec_symbols);
@@ -47,7 +47,7 @@ class NecIr
         bool nec_parse_frame_repeat(rmt_symbol_word_t *rmt_nec_symbols);
         void example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t symbol_num);
 
-        std::string tag = "NecIr";
+        std::string tag = "RmtIr";
         uint16_t txPin = 12; // M5 Atom Lite Builtin IR LED
         uint16_t rxPin = 26;
 
@@ -61,14 +61,14 @@ class NecIr
         QueueHandle_t receive_queue;
 
         /**
-         * @brief Saving NEC decode results
+         * @brief Saving RMT decode results
          */
         uint16_t s_nec_code_address;
         uint16_t s_nec_code_command;
 
     public:
-        NecIr(NecIr const&) = delete;
-        void operator=(NecIr const&) = delete;
+        RmtIr(RmtIr const&) = delete;
+        void operator=(RmtIr const&) = delete;
 };
 
-#endif /* NEC_IR_HPP_ */
+#endif /* RMT_IR_HPP_ */

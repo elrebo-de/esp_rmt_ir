@@ -1,5 +1,5 @@
 /*
- * nec_ir.cpp
+ * rmt_ir.cpp
  *
  *      Author: christophoberle
  *
@@ -35,16 +35,16 @@
 #define NEC_REPEAT_CODE_DURATION_1   2250
 
 
-#include "nec_ir.hpp"
+#include "rmt_ir.hpp"
 
-NecIr& NecIr::getInstance()
+RmtIr& RmtIr::getInstance()
 {
-    static NecIr instance; // Guaranteed to be destroyed. Instantiated on first use.
+    static RmtIr instance; // Guaranteed to be destroyed. Instantiated on first use.
     return instance;
 }
 
 // Function to set GPIO pins
-void NecIr::setGpioPins( uint16_t txPin,
+void RmtIr::setGpioPins( uint16_t txPin,
                          uint16_t rxPin)
 {
     ESP_LOGI(tag.c_str(), "Set GPIO pins");
@@ -64,7 +64,7 @@ bool example_rmt_rx_done_callback(rmt_channel_handle_t channel, const rmt_rx_don
 }
 
 // Function to initialize the NEC IR RMT
-void NecIr::initialize()
+void RmtIr::initialize()
 {
     ESP_LOGI(tag.c_str(), "Initializing NEC IR RMT");
 
@@ -136,7 +136,7 @@ void NecIr::initialize()
  * @brief Check whether a duration is within expected range
  */
 // static inline
-bool NecIr::nec_check_in_range(uint32_t signal_duration, uint32_t spec_duration)
+bool RmtIr::nec_check_in_range(uint32_t signal_duration, uint32_t spec_duration)
 {
     return (signal_duration < (spec_duration + EXAMPLE_IR_NEC_DECODE_MARGIN)) &&
            (signal_duration > (spec_duration - EXAMPLE_IR_NEC_DECODE_MARGIN));
@@ -146,7 +146,7 @@ bool NecIr::nec_check_in_range(uint32_t signal_duration, uint32_t spec_duration)
  * @brief Check whether a RMT symbol represents NEC logic zero
  */
 // static
-bool NecIr::nec_parse_logic0(rmt_symbol_word_t *rmt_nec_symbols)
+bool RmtIr::nec_parse_logic0(rmt_symbol_word_t *rmt_nec_symbols)
 {
     return nec_check_in_range(rmt_nec_symbols->duration0, NEC_PAYLOAD_ZERO_DURATION_0) &&
            nec_check_in_range(rmt_nec_symbols->duration1, NEC_PAYLOAD_ZERO_DURATION_1);
@@ -156,7 +156,7 @@ bool NecIr::nec_parse_logic0(rmt_symbol_word_t *rmt_nec_symbols)
  * @brief Check whether a RMT symbol represents NEC logic one
  */
 // static
-bool NecIr::nec_parse_logic1(rmt_symbol_word_t *rmt_nec_symbols)
+bool RmtIr::nec_parse_logic1(rmt_symbol_word_t *rmt_nec_symbols)
 {
     return nec_check_in_range(rmt_nec_symbols->duration0, NEC_PAYLOAD_ONE_DURATION_0) &&
            nec_check_in_range(rmt_nec_symbols->duration1, NEC_PAYLOAD_ONE_DURATION_1);
@@ -166,7 +166,7 @@ bool NecIr::nec_parse_logic1(rmt_symbol_word_t *rmt_nec_symbols)
  * @brief Decode RMT symbols into NEC address and command
  */
 //static
-bool NecIr::nec_parse_frame(rmt_symbol_word_t *rmt_nec_symbols)
+bool RmtIr::nec_parse_frame(rmt_symbol_word_t *rmt_nec_symbols)
 {
     rmt_symbol_word_t *cur = rmt_nec_symbols;
     uint16_t address = 0;
@@ -207,7 +207,7 @@ bool NecIr::nec_parse_frame(rmt_symbol_word_t *rmt_nec_symbols)
  * @brief Check whether the RMT symbols represent NEC repeat code
  */
 // static
-bool NecIr::nec_parse_frame_repeat(rmt_symbol_word_t *rmt_nec_symbols)
+bool RmtIr::nec_parse_frame_repeat(rmt_symbol_word_t *rmt_nec_symbols)
 {
     return nec_check_in_range(rmt_nec_symbols->duration0, NEC_REPEAT_CODE_DURATION_0) &&
            nec_check_in_range(rmt_nec_symbols->duration1, NEC_REPEAT_CODE_DURATION_1);
@@ -217,7 +217,7 @@ bool NecIr::nec_parse_frame_repeat(rmt_symbol_word_t *rmt_nec_symbols)
  * @brief Decode RMT symbols into NEC scan code and print the result
  */
 // static
-void NecIr::example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t symbol_num)
+void RmtIr::example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t symbol_num)
 {
     printf("NEC frame start---\r\n");
     for (size_t i = 0; i < symbol_num; i++) {
@@ -244,7 +244,7 @@ void NecIr::example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t s
     }
 }
 
-void NecIr::receiveNecFrame() {
+void RmtIr::receiveNecFrame() {
     // the following timing requirement is based on NEC protocol
     rmt_receive_config_t receive_config = {
         .signal_range_min_ns = 1250,     // the shortest duration for NEC signal is 560us, 1250ns < 560us, valid signal won't be treated as noise
@@ -270,7 +270,7 @@ void NecIr::receiveNecFrame() {
 }
 
 // Function to transmit a NEC command frame
-void NecIr::transmitNecCommandFrame(uint16_t address, uint16_t code)
+void RmtIr::transmitNecCommandFrame(uint16_t address, uint16_t code)
 {
     ESP_LOGI(tag.c_str(), "Transmit a NEC command frame address=%04X, code=%04X", address, code);
 
@@ -291,7 +291,7 @@ void NecIr::transmitNecCommandFrame(uint16_t address, uint16_t code)
 }
 
 // Function to transmit a NEC repeat frame
-void NecIr::transmitNecRepeatFrame()
+void RmtIr::transmitNecRepeatFrame()
 {
     ESP_LOGI(tag.c_str(), "Transmit a NEC repeat frame (not yet implemented!)");
 }

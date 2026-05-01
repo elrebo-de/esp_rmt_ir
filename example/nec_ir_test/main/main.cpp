@@ -1,5 +1,5 @@
 /*
- * Example program to use nec_ir functionality with elrebo-de/esp_nec_ir
+ * Example program to use rmt_ir functionality with elrebo-de/esp_rmt_ir
  */
 
 #include <string>
@@ -25,12 +25,12 @@ extern "C" void callback_onBoardButton_BUTTON_SINGLE_CLICK(void *arg, void *data
 
     // bei jedem BUTTON_SINGLE_CLICK wird der state umgeschaltet
     state = !state;
-    NecIr* necIr = &necIr->getInstance(); // get the Singleton instance
+    RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
     if (!state) {
-        necIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
+        rmtIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
     }
     else {
-        necIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
+        rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
     }
 }
 
@@ -43,10 +43,10 @@ extern "C" void callback_onBoardButton_BUTTON_DOUBLE_CLICK(void *arg, void *data
 
     // bei jedem BUTTON_DOUBLE_CLICK wird der state umgeschaltet
     state = !state;
-    NecIr* necIr = &necIr->getInstance(); // get the Singleton instance
-    necIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
+    RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
+    rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
     vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
-    necIr->transmitNecCommandFrame(0x857a, 0xe916); // "Tuner"
+    rmtIr->transmitNecCommandFrame(0x857a, 0xe916); // "Tuner"
 }
 
 extern "C" void app_main(void)
@@ -58,9 +58,9 @@ extern "C" void app_main(void)
 
     /* Initialize NecIr class */
     ESP_LOGI(tag, "NecIr");
-    NecIr* necIr = &necIr->getInstance(); // get the Singleton instance
-    necIr->setGpioPins(12,26); // set the GPIO pins
-    necIr->initialize(); // initialize NEC IR RMT
+    RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
+    rmtIr->setGpioPins(12,26); // set the GPIO pins
+    rmtIr->initialize(); // initialize RMT IR
 
     GenericButton onBoardButton(
 	    std::string("onBoardButton"),
@@ -76,20 +76,20 @@ extern "C" void app_main(void)
 
     // transmitter test
     //ESP_LOGI(tag, "transmitNecCommandFrame");
-    //necIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
+    //rmtIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
     //vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 second
-    //necIr->transmitNecRepeatFrame();
+    //rmtIr->transmitNecRepeatFrame();
 
     //vTaskDelay(pdMS_TO_TICKS(30000)); // delay 30 seconds
 
-    //necIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
+    //rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
     //vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 second
-    //necIr->transmitNecRepeatFrame();
+    //rmtIr->transmitNecRepeatFrame();
 
     // receiver test
     //while(1) {
     //    ESP_LOGI(tag, "receiveNecFrame");
-    //    necIr->receiveNecFrame();
+    //    rmtIr->receiveNecFrame();
 
     while(1) {
         vTaskDelay(pdMS_TO_TICKS(30000)); // delay 30 second

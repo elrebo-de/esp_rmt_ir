@@ -2,6 +2,6 @@ version: 1.0.0
 dependencies:
   idf: '>=5.5.0'
   elrebo-de/generic_button: ~1.0.8
-  elrebo-de/esp_nec_ir:
+  elrebo-de/esp_rmt_ir:
     version: "1.0.0"
     override_path: '../../../' # three levels up, pointing to the directory with the component itself
