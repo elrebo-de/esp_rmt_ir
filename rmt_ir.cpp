@@ -112,6 +112,7 @@ void RmtIr::initialize()
     ESP_ERROR_CHECK(rmt_enable(rx_channel));
 
     necProtocol = new NecProtocol();
+    panasonicProtocol = new PanasonicProtocol();
 }
 
     void RmtIr::transmitNecCommandFrame(uint16_t address, uint16_t code)
@@ -128,3 +129,48 @@ void RmtIr::initialize()
     {
         this->necProtocol->receiveNecFrame(rx_channel, receive_queue);
     }
+    void RmtIr::receiveNecOrPanasonicFrame()
+    {
+    // the following timing requirement is based on NEC protocol, also usable for PANASONIC protocol
+    rmt_receive_config_t receive_config = {
+        .signal_range_min_ns = 1250,     // the shortest duration for NEC signal is 560us, 1250ns < 560us, valid signal won't be treated as noise
+        .signal_range_max_ns = 12000000, // the longest duration for NEC signal is 9000us, 12000000ns > 9000us, the receive won't stop early
+        .flags = {
+            .en_partial_rx = 0, // ESP32: partial receive not supported
+        }
+    };
+
+    // save the received RMT symbols
+    rmt_symbol_word_t raw_symbols[64]; // 64 symbols should be sufficient for a standard NEC frame and for a standard PANASONIC frame
+    rmt_rx_done_event_data_t rx_data;
+    // ready to receive
+    ESP_ERROR_CHECK(rmt_receive(rx_channel, raw_symbols, sizeof(raw_symbols), &receive_config));
+
+    // wait for RX done signal
+    while (xQueueReceive(receive_queue, &rx_data, pdMS_TO_TICKS(1000)) != pdPASS) {
+       ESP_LOGI(this->tag.c_str(), "wait for RX done signal");
+    }
+
+    printf("NEC or PANASONIC frame start---\r\n");
+    for (size_t i = 0; i < rx_data.num_symbols; i++) {
+        printf("{%d:%d},{%d:%d}\r\n", rx_data.received_symbols[i].level0, rx_data.received_symbols[i].duration0,
+               rx_data.received_symbols[i].level1, rx_data.received_symbols[i].duration1);
+    }
+    printf("---NEC or PANASONIC frame end: ");
+    // decode RMT symbols
+    printf("symbol_num=%i\r\n", rx_data.num_symbols);
+
+    // parse the receive symbols and print the result
+    if (rx_data.num_symbols == 34 || rx_data.num_symbols == 2)
+    {
+        this->necProtocol->example_parse_nec_frame(rx_data.received_symbols, rx_data.num_symbols);
+    }
+    else if (rx_data.num_symbols == 50)
+    {
+        this->panasonicProtocol->example_parse_panasonic_frame(rx_data.received_symbols, rx_data.num_symbols);
+    }
+    else
+    {
+        printf("Unknown NEC or PANASONIC frame\r\n\r\n");
+    }
+}

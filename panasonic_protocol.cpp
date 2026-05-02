@@ -176,7 +176,16 @@ void PanasonicProtocol::example_parse_panasonic_frame(rmt_symbol_word_t *rmt_pan
     switch (symbol_num) {
     case 50: // PANASONIC normal frame
         if (panasonic_parse_frame(rmt_panasonic_symbols)) {
-            printf("PANASONIC non_saving_bits_1=%04X, system_code=%02X, Address=%02X, Command=%02X, non_saving_bits_2=%02X\r\n\r\n", s_panasonic_code_non_saving_bits_1, s_panasonic_code_system_code, s_panasonic_code_address, s_panasonic_code_command, s_panasonic_code_non_saving_bits_2);
+            printf("PANASONIC non_saving_bits_1=%04X,\r\n" +
+                   "                system_code=%02X,\r\n" +
+                   "                    address=%02X,\r\n" +
+                   "                    command=%02X,\r\n" +
+                   "          non_saving_bits_2=%02X\r\n\r\n",
+                   s_panasonic_code_non_saving_bits_1,
+                   s_panasonic_code_system_code,
+                   s_panasonic_code_address,
+                   s_panasonic_code_command,
+                   s_panasonic_code_non_saving_bits_2);
         }
         break;
     //case 2: // PANASONIC repeat frame

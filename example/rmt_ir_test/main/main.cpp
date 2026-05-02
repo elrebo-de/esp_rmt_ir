@@ -87,12 +87,9 @@ extern "C" void app_main(void)
     //rmtIr->transmitNecRepeatFrame();
 
     // receiver test
-    //while(1) {
-    //    ESP_LOGI(tag, "receiveNecFrame");
-    //    rmtIr->receiveNecFrame();
-
     while(1) {
-        vTaskDelay(pdMS_TO_TICKS(30000)); // delay 30 second
+        ESP_LOGI(tag, "receiveNecOrPanasonicFrame");
+        rmtIr->receiveNecOrPanasonicFrame();
     }
 
 }
