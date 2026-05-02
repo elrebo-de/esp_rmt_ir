@@ -14,6 +14,7 @@
 #include "driver/rmt_rx.h"
 
 #include "nec_protocol.hpp"
+#include "panasonic_protocol.hpp"
 
 /* class RmtIr
    Class to implement an IR transmitter / receiver which uses different protocols.
