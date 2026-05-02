@@ -20,19 +20,19 @@
 #define EXAMPLE_IR_RESOLUTION_HZ     1000000 // 1MHz resolution, 1 tick = 1us
 #define EXAMPLE_IR_TX_GPIO_NUM       12
 #define EXAMPLE_IR_RX_GPIO_NUM       26
-#define EXAMPLE_IR_PANASONIC_DECODE_MARGIN 200     // Tolerance for parsing RMT symbols into bit stream
+#define EXAMPLE_IR_PANASONIC_DECODE_MARGIN 256     // Tolerance for parsing RMT symbols into bit stream
 
 /**
  * @brief PANASONIC timing spec
  */
-#define PANASONIC_LEADING_CODE_DURATION_0  9000
-#define PANASONIC_LEADING_CODE_DURATION_1  4500
-#define PANASONIC_PAYLOAD_ZERO_DURATION_0  560
-#define PANASONIC_PAYLOAD_ZERO_DURATION_1  560
-#define PANASONIC_PAYLOAD_ONE_DURATION_0   560
-#define PANASONIC_PAYLOAD_ONE_DURATION_1   1690
-#define PANASONIC_REPEAT_CODE_DURATION_0   9000
-#define PANASONIC_REPEAT_CODE_DURATION_1   2250
+#define PANASONIC_LEADING_CODE_DURATION_0  3380
+#define PANASONIC_LEADING_CODE_DURATION_1  1690
+#define PANASONIC_PAYLOAD_ZERO_DURATION_0  420
+#define PANASONIC_PAYLOAD_ZERO_DURATION_1  420
+#define PANASONIC_PAYLOAD_ONE_DURATION_0   420
+#define PANASONIC_PAYLOAD_ONE_DURATION_1   1270
+//#define PANASONIC_REPEAT_CODE_DURATION_0   9000
+//#define PANASONIC_REPEAT_CODE_DURATION_1   2250
 
 
 #include "rmt_ir.hpp"
@@ -79,14 +79,19 @@ bool PanasonicProtocol::panasonic_parse_logic1(rmt_symbol_word_t *rmt_panasonic_
 }
 
 /**
- * @brief Decode RMT symbols into PANASONIC address and command
+ * @brief Decode RMT symbols into PANASONIC system_code, address and command
  */
 //static
 bool PanasonicProtocol::panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_symbols)
 {
     rmt_symbol_word_t *cur = rmt_panasonic_symbols;
-    uint16_t address = 0;
-    uint16_t command = 0;
+    uint16_t non_saving_bits_1 = 0; // first 16 of 20 non saving bits
+    uint8_t system_code = 0; // last 4 of 20 non saving bits and 4 bit system code
+    uint8_t address = 0; // 2 non saving bits and 6 bit address code
+    uint8_t command = 0; // 8 bit command code
+    uint8_t non_saving_bits_2 = 0; // 8 non saving bits
+    // and the final pulse
+
     bool valid_leading_code = panasonic_check_in_range(cur->duration0, PANASONIC_LEADING_CODE_DURATION_0) &&
                               panasonic_check_in_range(cur->duration1, PANASONIC_LEADING_CODE_DURATION_1);
     if (!valid_leading_code) {
@@ -94,6 +99,26 @@ bool PanasonicProtocol::panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_s
     }
     cur++;
     for (int i = 0; i < 16; i++) {
+        if (panasonic_parse_logic1(cur)) {
+            non_saving_bits_1 |= 1 << i;
+        } else if (panasonic_parse_logic0(cur)) {
+            non_saving_bits_1 &= ~(1 << i);
+        } else {
+            return false;
+        }
+        cur++;
+    }
+    for (int i = 0; i < 8; i++) {
+        if (panasonic_parse_logic1(cur)) {
+            system_code |= 1 << i;
+        } else if (panasonic_parse_logic0(cur)) {
+            system_code &= ~(1 << i);
+        } else {
+            return false;
+        }
+        cur++;
+    }
+    for (int i = 0; i < 8; i++) {
         if (panasonic_parse_logic1(cur)) {
             address |= 1 << i;
         } else if (panasonic_parse_logic0(cur)) {
@@ -103,7 +128,7 @@ bool PanasonicProtocol::panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_s
         }
         cur++;
     }
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 8; i++) {
         if (panasonic_parse_logic1(cur)) {
             command |= 1 << i;
         } else if (panasonic_parse_logic0(cur)) {
@@ -113,21 +138,26 @@ bool PanasonicProtocol::panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_s
         }
         cur++;
     }
-    // save address and command
+    // save panasonic code data
+    s_panasonic_code_non_saving_bits_1 = non_saving_bits_1;
+    s_panasonic_code_system_code = system_code;
     s_panasonic_code_address = address;
     s_panasonic_code_command = command;
+    s_panasonic_code_non_saving_bits_2 = non_saving_bits_2;
     return true;
 }
 
 /**
  * @brief Check whether the RMT symbols represent PANASONIC repeat code
- */
+ * I THINK THERE IS NO PANASONIC REPEAT CODE
+ * /
 // static
 bool PanasonicProtocol::panasonic_parse_frame_repeat(rmt_symbol_word_t *rmt_panasonic_symbols)
 {
     return panasonic_check_in_range(rmt_panasonic_symbols->duration0, PANASONIC_REPEAT_CODE_DURATION_0) &&
            panasonic_check_in_range(rmt_panasonic_symbols->duration1, PANASONIC_REPEAT_CODE_DURATION_1);
 }
+*/
 
 /**
  * @brief Decode RMT symbols into PANASONIC scan code and print the result
@@ -144,16 +174,16 @@ void PanasonicProtocol::example_parse_panasonic_frame(rmt_symbol_word_t *rmt_pan
     // decode RMT symbols
     printf("symbol_num=%i ", symbol_num);
     switch (symbol_num) {
-    case 34: // PANASONIC normal frame
+    case 50: // PANASONIC normal frame
         if (panasonic_parse_frame(rmt_panasonic_symbols)) {
-            printf("PANASONIC Address=%04X, Command=%04X\r\n\r\n", s_panasonic_code_address, s_panasonic_code_command);
+            printf("PANASONIC non_saving_bits_1=%04X, system_code=%02X, Address=%02X, Command=%02X, non_saving_bits_2=%02X\r\n\r\n", s_panasonic_code_non_saving_bits_1, s_panasonic_code_system_code, s_panasonic_code_address, s_panasonic_code_command, s_panasonic_code_non_saving_bits_2);
         }
         break;
-    case 2: // PANASONIC repeat frame
-        if (panasonic_parse_frame_repeat(rmt_panasonic_symbols)) {
-            printf("PANASONIC Address=%04X, Command=%04X, repeat\r\n\r\n", s_panasonic_code_address, s_panasonic_code_command);
-        }
-        break;
+    //case 2: // PANASONIC repeat frame
+    //    if (panasonic_parse_frame_repeat(rmt_panasonic_symbols)) {
+    //        printf("PANASONIC Address=%04X, Command=%04X, repeat\r\n\r\n", s_panasonic_code_address, s_panasonic_code_command);
+    //    }
+    //    break;
     default:
         printf("Unknown PANASONIC frame\r\n\r\n");
         break;

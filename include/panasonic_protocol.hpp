@@ -29,7 +29,7 @@ class PanasonicProtocol
         bool panasonic_parse_logic0(rmt_symbol_word_t *rmt_panasonic_symbols);
         bool panasonic_parse_logic1(rmt_symbol_word_t *rmt_panasonic_symbols);
         bool panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_symbols);
-        bool panasonic_parse_frame_repeat(rmt_symbol_word_t *rmt_panasonic_symbols);
+        //bool panasonic_parse_frame_repeat(rmt_symbol_word_t *rmt_panasonic_symbols);
         void example_parse_panasonic_frame(rmt_symbol_word_t *rmt_panasonic_symbols, size_t symbol_num);
 
         void transmitPanasonicCommandFrame(rmt_channel_handle_t tx_channel, uint16_t address, uint16_t code);
@@ -43,8 +43,11 @@ class PanasonicProtocol
         /**
          * @brief Saving RMT decode results
          */
-        uint16_t s_panasonic_code_address;
-        uint16_t s_panasonic_code_command;
+        uint16_t s_panasonic_code_non_saving_bits_1;
+        uint8_t s_panasonic_code_system_code;
+        uint8_t s_panasonic_code_address;
+        uint8_t s_panasonic_code_command;
+        uint8_t s_panasonic_code_non_saving_bits_2;
 };
 
 #endif /* PANASONIC_PROTOCOL_HPP_ */
