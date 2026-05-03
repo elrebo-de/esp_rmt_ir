@@ -39,7 +39,6 @@ class RmtIr
 
         void transmitNecCommandFrame(uint16_t address, uint16_t code);
         void transmitNecRepeatFrame();
-        void receiveNecFrame();
         void receiveNecOrPanasonicFrame();
 
         NecProtocol *necProtocol;

@@ -125,10 +125,6 @@ void RmtIr::initialize()
         this->necProtocol->transmitNecRepeatFrame(tx_channel);
     }
 
-    void RmtIr::receiveNecFrame()
-    {
-        this->necProtocol->receiveNecFrame(rx_channel, receive_queue);
-    }
     void RmtIr::receiveNecOrPanasonicFrame()
     {
     // the following timing requirement is based on NEC protocol, also usable for PANASONIC protocol

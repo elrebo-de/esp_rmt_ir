@@ -165,14 +165,14 @@ bool PanasonicProtocol::panasonic_parse_frame_repeat(rmt_symbol_word_t *rmt_pana
 // static
 void PanasonicProtocol::example_parse_panasonic_frame(rmt_symbol_word_t *rmt_panasonic_symbols, size_t symbol_num)
 {
-    printf("PANASONIC frame start---\r\n");
-    for (size_t i = 0; i < symbol_num; i++) {
-        printf("{%d:%d},{%d:%d}\r\n", rmt_panasonic_symbols[i].level0, rmt_panasonic_symbols[i].duration0,
-               rmt_panasonic_symbols[i].level1, rmt_panasonic_symbols[i].duration1);
-    }
-    printf("---PANASONIC frame end: ");
-    // decode RMT symbols
-    printf("symbol_num=%i ", symbol_num);
+    //  printf("PANASONIC frame start---\r\n");
+    //  for (size_t i = 0; i < symbol_num; i++) {
+    //      printf("{%d:%d},{%d:%d}\r\n", rmt_panasonic_symbols[i].level0, rmt_panasonic_symbols[i].duration0,
+    //             rmt_panasonic_symbols[i].level1, rmt_panasonic_symbols[i].duration1);
+    //  }
+    //  printf("---PANASONIC frame end: ");
+    //  // decode RMT symbols
+    //  printf("symbol_num=%i ", symbol_num);
     switch (symbol_num) {
     case 50: // PANASONIC normal frame
         if (panasonic_parse_frame(rmt_panasonic_symbols)) {
@@ -185,6 +185,7 @@ void PanasonicProtocol::example_parse_panasonic_frame(rmt_symbol_word_t *rmt_pan
         }
         break;
     //case 2: // PANASONIC repeat frame
+    //        // there is no PANASONIC repeat frame
     //    if (panasonic_parse_frame_repeat(rmt_panasonic_symbols)) {
     //        printf("PANASONIC Address=%04X, Command=%04X, repeat\r\n\r\n", s_panasonic_code_address, s_panasonic_code_command);
     //    }

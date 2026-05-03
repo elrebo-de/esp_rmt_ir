@@ -135,14 +135,14 @@ bool NecProtocol::nec_parse_frame_repeat(rmt_symbol_word_t *rmt_nec_symbols)
 // static
 void NecProtocol::example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t symbol_num)
 {
-    printf("NEC frame start---\r\n");
-    for (size_t i = 0; i < symbol_num; i++) {
-        printf("{%d:%d},{%d:%d}\r\n", rmt_nec_symbols[i].level0, rmt_nec_symbols[i].duration0,
-               rmt_nec_symbols[i].level1, rmt_nec_symbols[i].duration1);
-    }
-    printf("---NEC frame end: ");
-    // decode RMT symbols
-    printf("symbol_num=%i ", symbol_num);
+    //       printf("NEC frame start---\r\n");
+    //       for (size_t i = 0; i < symbol_num; i++) {
+    //           printf("{%d:%d},{%d:%d}\r\n", rmt_nec_symbols[i].level0, rmt_nec_symbols[i].duration0,
+    //                  rmt_nec_symbols[i].level1, rmt_nec_symbols[i].duration1);
+    //       }
+    //       printf("---NEC frame end: ");
+    //       // decode RMT symbols
+    //       printf("symbol_num=%i ", symbol_num);
     switch (symbol_num) {
     case 34: // NEC normal frame
         if (nec_parse_frame(rmt_nec_symbols)) {
