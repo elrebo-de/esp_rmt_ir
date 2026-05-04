@@ -31,8 +31,6 @@
 #define PANASONIC_PAYLOAD_ZERO_DURATION_1  420
 #define PANASONIC_PAYLOAD_ONE_DURATION_0   420
 #define PANASONIC_PAYLOAD_ONE_DURATION_1   1270
-//#define PANASONIC_REPEAT_CODE_DURATION_0   9000
-//#define PANASONIC_REPEAT_CODE_DURATION_1   2250
 
 
 #include "rmt_ir.hpp"
@@ -138,6 +136,16 @@ bool PanasonicProtocol::panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_s
         }
         cur++;
     }
+    for (int i = 0; i < 8; i++) {
+        if (panasonic_parse_logic1(cur)) {
+            non_saving_bits_2 |= 1 << i;
+        } else if (panasonic_parse_logic0(cur)) {
+            non_saving_bits_2 &= ~(1 << i);
+        } else {
+            return false;
+        }
+        cur++;
+    }
     // save panasonic code data
     s_panasonic_code_non_saving_bits_1 = non_saving_bits_1;
     s_panasonic_code_system_code = system_code;
@@ -148,48 +156,22 @@ bool PanasonicProtocol::panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_s
 }
 
 /**
- * @brief Check whether the RMT symbols represent PANASONIC repeat code
- * I THINK THERE IS NO PANASONIC REPEAT CODE
- * /
-// static
-bool PanasonicProtocol::panasonic_parse_frame_repeat(rmt_symbol_word_t *rmt_panasonic_symbols)
-{
-    return panasonic_check_in_range(rmt_panasonic_symbols->duration0, PANASONIC_REPEAT_CODE_DURATION_0) &&
-           panasonic_check_in_range(rmt_panasonic_symbols->duration1, PANASONIC_REPEAT_CODE_DURATION_1);
-}
-*/
-
-/**
  * @brief Decode RMT symbols into PANASONIC scan code and print the result
  */
 // static
 void PanasonicProtocol::example_parse_panasonic_frame(rmt_symbol_word_t *rmt_panasonic_symbols, size_t symbol_num)
 {
-    //  printf("PANASONIC frame start---\r\n");
-    //  for (size_t i = 0; i < symbol_num; i++) {
-    //      printf("{%d:%d},{%d:%d}\r\n", rmt_panasonic_symbols[i].level0, rmt_panasonic_symbols[i].duration0,
-    //             rmt_panasonic_symbols[i].level1, rmt_panasonic_symbols[i].duration1);
-    //  }
-    //  printf("---PANASONIC frame end: ");
-    //  // decode RMT symbols
-    //  printf("symbol_num=%i ", symbol_num);
     switch (symbol_num) {
     case 50: // PANASONIC normal frame
         if (panasonic_parse_frame(rmt_panasonic_symbols)) {
-            printf("PANASONIC non_saving_bits_1=%04X,\r\n                system_code=%02X,\r\n                    address=%02X,\r\n                    command=%02X,\r\n          non_saving_bits_2=%02X\r\n\r\n",
-                   s_panasonic_code_non_saving_bits_1,
-                   s_panasonic_code_system_code,
-                   s_panasonic_code_address,
-                   s_panasonic_code_command,
-                   s_panasonic_code_non_saving_bits_2);
+           printf("PANASONIC non_saving_bits_1=%04X,\r\n                system_code=%02X,\r\n                    address=%02X,\r\n                    command=%02X,\r\n          non_saving_bits_2=%02X\r\n\r\n",
+                  s_panasonic_code_non_saving_bits_1,
+                  s_panasonic_code_system_code,
+                  s_panasonic_code_address,
+                  s_panasonic_code_command,
+                  s_panasonic_code_non_saving_bits_2);
         }
         break;
-    //case 2: // PANASONIC repeat frame
-    //        // there is no PANASONIC repeat frame
-    //    if (panasonic_parse_frame_repeat(rmt_panasonic_symbols)) {
-    //        printf("PANASONIC Address=%04X, Command=%04X, repeat\r\n\r\n", s_panasonic_code_address, s_panasonic_code_command);
-    //    }
-    //    break;
     default:
         printf("Unknown PANASONIC frame\r\n\r\n");
         break;
@@ -203,7 +185,7 @@ void PanasonicProtocol::receivePanasonicFrame(
     // the following timing requirement is based on PANASONIC protocol
     rmt_receive_config_t receive_config = {
         .signal_range_min_ns = 1250,     // the shortest duration for PANASONIC signal is 560us, 1250ns < 560us, valid signal won't be treated as noise
-        .signal_range_max_ns = 12000000, // the longest duration for PANASONIC signal is 9000us, 12000000ns > 9000us, the receive won't stop early
+        .signal_range_max_ns = 20000000, // the longest duration for PANASONIC signal is 9000us, 12000000ns > 9000us, the receive won't stop early
         .flags = {
             .en_partial_rx = 0, // ESP32: partial receive not supported
         }
@@ -227,10 +209,13 @@ void PanasonicProtocol::receivePanasonicFrame(
 // Function to transmit a PANASONIC command frame
 void PanasonicProtocol::transmitPanasonicCommandFrame(
          rmt_channel_handle_t tx_channel,
-         uint16_t address,
-         uint16_t code)
+         uint16_t non_saving_bits_1,
+         uint8_t system_code,
+         uint8_t address,
+         uint8_t command,
+         uint8_t non_saving_bits_2)
 {
-    ESP_LOGI(tag.c_str(), "Transmit a PANASONIC command frame address=%04X, code=%04X", address, code);
+    ESP_LOGI(tag.c_str(), "Transmit a PANASONIC command frame non_saving_bits_1=%04X, system_code=%02X, address=%02X, command=%02X, non_saving_bits_2=%02X", non_saving_bits_1, system_code, address, command, non_saving_bits_2);
 
     // this example won't send PANASONIC frames in a loop
     rmt_transmit_config_t transmit_config = {
@@ -242,17 +227,13 @@ void PanasonicProtocol::transmitPanasonicCommandFrame(
     };
 
     const ir_panasonic_scan_code_t scan_code = {
+        .non_saving_bits_1 = non_saving_bits_1,
+        .system_code = system_code,
         .address = address,
-        .command = code,
+        .command = command,
+        .non_saving_bits_2 = non_saving_bits_2,
     };
     ESP_ERROR_CHECK(rmt_transmit(tx_channel, panasonic_encoder, &scan_code, sizeof(scan_code), &transmit_config));
-}
-
-// Function to transmit a PANASONIC repeat frame
-void PanasonicProtocol::transmitPanasonicRepeatFrame(
-         rmt_channel_handle_t tx_channel)
-{
-    ESP_LOGI(tag.c_str(), "Transmit a PANASONIC repeat frame (not yet implemented!)");
 }
 
 

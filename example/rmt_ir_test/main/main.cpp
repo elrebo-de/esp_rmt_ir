@@ -28,9 +28,14 @@ extern "C" void callback_onBoardButton_BUTTON_SINGLE_CLICK(void *arg, void *data
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
     if (!state) {
         rmtIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x2002, 0x80, 0x00, 0x3d, 0xbd); // "Power 0/1"
     }
     else {
         rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x2002, 0x80, 0x00, 0x3d, 0xbd); // "Power 0/1"
+
     }
 }
 

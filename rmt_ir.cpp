@@ -61,7 +61,7 @@ void RmtIr::initialize()
         .gpio_num = (gpio_num_t) this->rxPin,
         .clk_src = RMT_CLK_SRC_DEFAULT,
         .resolution_hz = EXAMPLE_IR_RESOLUTION_HZ,
-        .mem_block_symbols = 64, // amount of RMT symbols that the channel can store at a time
+        .mem_block_symbols = 200, // amount of RMT symbols that the channel can store at a time
         .intr_priority = 0,
         .flags = {
             .invert_in = 0,
@@ -84,7 +84,7 @@ void RmtIr::initialize()
         .gpio_num = (gpio_num_t) this->txPin,
         .clk_src = RMT_CLK_SRC_DEFAULT,
         .resolution_hz = EXAMPLE_IR_RESOLUTION_HZ,
-        .mem_block_symbols = 64, // amount of RMT symbols that the channel can store at a time
+        .mem_block_symbols = 200, // amount of RMT symbols that the channel can store at a time
         .trans_queue_depth = 4,  // number of transactions that allowed to pending in the background, this example won't queue multiple transactions, so queue depth > 1 is sufficient
         .intr_priority = 0,
         .flags = {
@@ -125,19 +125,24 @@ void RmtIr::initialize()
         this->necProtocol->transmitNecRepeatFrame(tx_channel);
     }
 
+    void RmtIr::transmitPanasonicCommandFrame(uint16_t non_saving_bits_1, uint8_t system_code, uint8_t address, uint8_t command, uint8_t non_saving_bits_2)
+    {
+        this->panasonicProtocol->transmitPanasonicCommandFrame(tx_channel, non_saving_bits_1, system_code, address, command, non_saving_bits_2);
+    }
+
     void RmtIr::receiveNecOrPanasonicFrame()
     {
     // the following timing requirement is based on NEC protocol, also usable for PANASONIC protocol
     rmt_receive_config_t receive_config = {
         .signal_range_min_ns = 1250,     // the shortest duration for NEC signal is 560us, 1250ns < 560us, valid signal won't be treated as noise
-        .signal_range_max_ns = 12000000, // the longest duration for NEC signal is 9000us, 12000000ns > 9000us, the receive won't stop early
+        .signal_range_max_ns = 20000000, // the longest duration for NEC signal is 9000us, 12000000ns > 9000us, the receive won't stop early
         .flags = {
             .en_partial_rx = 0, // ESP32: partial receive not supported
         }
     };
 
     // save the received RMT symbols
-    rmt_symbol_word_t raw_symbols[64]; // 64 symbols should be sufficient for a standard NEC frame and for a standard PANASONIC frame
+    rmt_symbol_word_t raw_symbols[200]; // 64 symbols should be sufficient for a standard NEC frame and for a standard PANASONIC frame
     rmt_rx_done_event_data_t rx_data;
     // ready to receive
     ESP_ERROR_CHECK(rmt_receive(rx_channel, raw_symbols, sizeof(raw_symbols), &receive_config));

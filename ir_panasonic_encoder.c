@@ -40,8 +40,8 @@ static size_t rmt_encode_ir_panasonic(rmt_encoder_t *encoder, rmt_channel_handle
             goto out; // yield if there's no free space to put other encoding artifacts
         }
     // fall-through
-    case 1: // send address
-        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &scan_code->address, sizeof(uint16_t), &session_state);
+    case 1: // send non_saving_bits_1
+        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &scan_code->non_saving_bits_1, sizeof(uint16_t), &session_state);
         if (session_state & RMT_ENCODING_COMPLETE) {
             panasonic_encoder->state = 2; // we can only switch to next state when current encoder finished
         }
@@ -50,8 +50,8 @@ static size_t rmt_encode_ir_panasonic(rmt_encoder_t *encoder, rmt_channel_handle
             goto out; // yield if there's no free space to put other encoding artifacts
         }
     // fall-through
-    case 2: // send command
-        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &scan_code->command, sizeof(uint16_t), &session_state);
+    case 2: // send system_code
+        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &scan_code->system_code, sizeof(uint8_t), &session_state);
         if (session_state & RMT_ENCODING_COMPLETE) {
             panasonic_encoder->state = 3; // we can only switch to next state when current encoder finished
         }
@@ -60,7 +60,37 @@ static size_t rmt_encode_ir_panasonic(rmt_encoder_t *encoder, rmt_channel_handle
             goto out; // yield if there's no free space to put other encoding artifacts
         }
     // fall-through
-    case 3: // send ending code
+    case 3: // send address
+        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &scan_code->address, sizeof(uint8_t), &session_state);
+        if (session_state & RMT_ENCODING_COMPLETE) {
+            panasonic_encoder->state = 4; // we can only switch to next state when current encoder finished
+        }
+        if (session_state & RMT_ENCODING_MEM_FULL) {
+            state |= RMT_ENCODING_MEM_FULL;
+            goto out; // yield if there's no free space to put other encoding artifacts
+        }
+    // fall-through
+    case 4: // send command
+        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &scan_code->command, sizeof(uint8_t), &session_state);
+        if (session_state & RMT_ENCODING_COMPLETE) {
+            panasonic_encoder->state = 5; // we can only switch to next state when current encoder finished
+        }
+        if (session_state & RMT_ENCODING_MEM_FULL) {
+            state |= RMT_ENCODING_MEM_FULL;
+            goto out; // yield if there's no free space to put other encoding artifacts
+        }
+    // fall-through
+    case 5: // send address
+        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &scan_code->non_saving_bits_2, sizeof(uint8_t), &session_state);
+        if (session_state & RMT_ENCODING_COMPLETE) {
+            panasonic_encoder->state = 6; // we can only switch to next state when current encoder finished
+        }
+        if (session_state & RMT_ENCODING_MEM_FULL) {
+            state |= RMT_ENCODING_MEM_FULL;
+            goto out; // yield if there's no free space to put other encoding artifacts
+        }
+    // fall-through
+    case 6: // send ending code
         encoded_symbols += copy_encoder->encode(copy_encoder, channel, &panasonic_encoder->panasonic_ending_symbol,
                                                 sizeof(rmt_symbol_word_t), &session_state);
         if (session_state & RMT_ENCODING_COMPLETE) {
@@ -113,13 +143,13 @@ esp_err_t rmt_new_ir_panasonic_encoder(const ir_panasonic_encoder_config_t *conf
     // construct the leading code and ending code with RMT symbol format
     panasonic_encoder->panasonic_leading_symbol = (rmt_symbol_word_t) {
         .level0 = (config->invert_out ? 0 : 1),
-        .duration0 = 9000ULL * config->resolution / 1000000,
+        .duration0 = 3380ULL * config->resolution / 1000000,
         .level1 = (config->invert_out ? 1 : 0),
-        .duration1 = 4500ULL * config->resolution / 1000000,
+        .duration1 = 1690ULL * config->resolution / 1000000,
     };
     panasonic_encoder->panasonic_ending_symbol = (rmt_symbol_word_t) {
         .level0 = (config->invert_out ? 0 : 1),
-        .duration0 = 560 * config->resolution / 1000000,
+        .duration0 = 420 * config->resolution / 1000000,
         .level1 = (config->invert_out ? 1 : 0),
         .duration1 = 0x7FFF,
     };
@@ -127,15 +157,15 @@ esp_err_t rmt_new_ir_panasonic_encoder(const ir_panasonic_encoder_config_t *conf
     rmt_bytes_encoder_config_t bytes_encoder_config = {
         .bit0 = {
             .level0 = (config->invert_out ? 0 : 1),
-            .duration0 = 560 * config->resolution / 1000000, // T0H=560us
+            .duration0 = 420 * config->resolution / 1000000, // T0H=420us
             .level1 = (config->invert_out ? 1 : 0),
-            .duration1 = 560 * config->resolution / 1000000, // T0L=560us
+            .duration1 = 420 * config->resolution / 1000000, // T0L=420us
         },
         .bit1 = {
             .level0 = (config->invert_out ? 0 : 1),
-            .duration0 = 560 * config->resolution / 1000000,  // T1H=560us
+            .duration0 = 420 * config->resolution / 1000000,  // T1H=420us
             .level1 = (config->invert_out ? 1 : 0),
-            .duration1 = 1690 * config->resolution / 1000000, // T1L=1690us
+            .duration1 = 1270 * config->resolution / 1000000, // T1L=1270us
         },
     };
     ESP_GOTO_ON_ERROR(rmt_new_bytes_encoder(&bytes_encoder_config, &panasonic_encoder->bytes_encoder), err, TAG, "create bytes encoder failed");

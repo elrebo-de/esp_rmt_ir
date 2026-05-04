@@ -16,8 +16,11 @@ extern "C" {
  * @brief IR PANASONIC scan code representation
  */
 typedef struct {
-    uint16_t address;
-    uint16_t command;
+    uint16_t non_saving_bits_1;
+    uint8_t system_code;
+    uint8_t address;
+    uint8_t command;
+    uint8_t non_saving_bits_2;
 } ir_panasonic_scan_code_t;
 
 /**

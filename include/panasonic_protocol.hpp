@@ -29,11 +29,9 @@ class PanasonicProtocol
         bool panasonic_parse_logic0(rmt_symbol_word_t *rmt_panasonic_symbols);
         bool panasonic_parse_logic1(rmt_symbol_word_t *rmt_panasonic_symbols);
         bool panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_symbols);
-        //bool panasonic_parse_frame_repeat(rmt_symbol_word_t *rmt_panasonic_symbols);
         void example_parse_panasonic_frame(rmt_symbol_word_t *rmt_panasonic_symbols, size_t symbol_num);
 
-        void transmitPanasonicCommandFrame(rmt_channel_handle_t tx_channel, uint16_t address, uint16_t code);
-        void transmitPanasonicRepeatFrame(rmt_channel_handle_t tx_channel);
+        void transmitPanasonicCommandFrame(rmt_channel_handle_t tx_channel, uint16_t non_saving_bits_1, uint8_t system_code, uint8_t address, uint8_t command, uint8_t non_saving_bits_2);
         void receivePanasonicFrame(rmt_channel_handle_t rx_channel, QueueHandle_t receive_queue);
 
     private:
