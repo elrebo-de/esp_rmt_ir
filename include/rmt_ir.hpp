@@ -40,7 +40,7 @@ class RmtIr
         void transmitNecCommandFrame(uint16_t address, uint16_t code);
         void transmitNecRepeatFrame();
 
-        void transmitPanasonicCommandFrame(uint16_t non_saving_bits_1, uint8_t system_code, uint8_t address, uint8_t command, uint8_t non_saving_bits_2);
+        void transmitPanasonicCommandFrame(uint16_t non_saving_bits_1, uint8_t system_code, uint8_t address, uint8_t command);
 
         void receiveNecOrPanasonicFrame();
 

@@ -80,8 +80,8 @@ static size_t rmt_encode_ir_panasonic(rmt_encoder_t *encoder, rmt_channel_handle
             goto out; // yield if there's no free space to put other encoding artifacts
         }
     // fall-through
-    case 5: // send address
-        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &scan_code->non_saving_bits_2, sizeof(uint8_t), &session_state);
+    case 5: // send checksum
+        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &scan_code->checksum, sizeof(uint8_t), &session_state);
         if (session_state & RMT_ENCODING_COMPLETE) {
             panasonic_encoder->state = 6; // we can only switch to next state when current encoder finished
         }

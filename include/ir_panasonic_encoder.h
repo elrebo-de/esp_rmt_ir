@@ -20,7 +20,7 @@ typedef struct {
     uint8_t system_code;
     uint8_t address;
     uint8_t command;
-    uint8_t non_saving_bits_2;
+    uint8_t checksum; // checksum = system_code XOR address XOR command
 } ir_panasonic_scan_code_t;
 
 /**

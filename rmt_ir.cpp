@@ -125,9 +125,9 @@ void RmtIr::initialize()
         this->necProtocol->transmitNecRepeatFrame(tx_channel);
     }
 
-    void RmtIr::transmitPanasonicCommandFrame(uint16_t non_saving_bits_1, uint8_t system_code, uint8_t address, uint8_t command, uint8_t non_saving_bits_2)
+    void RmtIr::transmitPanasonicCommandFrame(uint16_t non_saving_bits_1, uint8_t system_code, uint8_t address, uint8_t command)
     {
-        this->panasonicProtocol->transmitPanasonicCommandFrame(tx_channel, non_saving_bits_1, system_code, address, command, non_saving_bits_2);
+        this->panasonicProtocol->transmitPanasonicCommandFrame(tx_channel, non_saving_bits_1, system_code, address, command);
     }
 
     void RmtIr::receiveNecOrPanasonicFrame()

@@ -87,7 +87,7 @@ bool PanasonicProtocol::panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_s
     uint8_t system_code = 0; // last 4 of 20 non saving bits and 4 bit system code
     uint8_t address = 0; // 2 non saving bits and 6 bit address code
     uint8_t command = 0; // 8 bit command code
-    uint8_t non_saving_bits_2 = 0; // 8 non saving bits
+    uint8_t checksum = 0; // 8 bits checksum = system_code XOR address XOR command
     // and the final pulse
 
     bool valid_leading_code = panasonic_check_in_range(cur->duration0, PANASONIC_LEADING_CODE_DURATION_0) &&
@@ -138,9 +138,9 @@ bool PanasonicProtocol::panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_s
     }
     for (int i = 0; i < 8; i++) {
         if (panasonic_parse_logic1(cur)) {
-            non_saving_bits_2 |= 1 << i;
+            checksum |= 1 << i;
         } else if (panasonic_parse_logic0(cur)) {
-            non_saving_bits_2 &= ~(1 << i);
+            checksum &= ~(1 << i);
         } else {
             return false;
         }
@@ -151,7 +151,7 @@ bool PanasonicProtocol::panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_s
     s_panasonic_code_system_code = system_code;
     s_panasonic_code_address = address;
     s_panasonic_code_command = command;
-    s_panasonic_code_non_saving_bits_2 = non_saving_bits_2;
+    s_panasonic_code_checksum = checksum;
     return true;
 }
 
@@ -164,12 +164,15 @@ void PanasonicProtocol::example_parse_panasonic_frame(rmt_symbol_word_t *rmt_pan
     switch (symbol_num) {
     case 50: // PANASONIC normal frame
         if (panasonic_parse_frame(rmt_panasonic_symbols)) {
-           printf("PANASONIC non_saving_bits_1=%04X,\r\n                system_code=%02X,\r\n                    address=%02X,\r\n                    command=%02X,\r\n          non_saving_bits_2=%02X\r\n\r\n",
+           uint8_t calculated_checksum = s_panasonic_code_system_code ^ s_panasonic_code_address ^ s_panasonic_code_command;
+           printf("PANASONIC non_saving_bits_1=%04X,\r\n                system_code=%02X,\r\n                    address=%02X,\r\n                    command=%02X,\r\n                   checksum=%02X,\r\n        calculated checksum=%02X\r\n\r\n",
                   s_panasonic_code_non_saving_bits_1,
                   s_panasonic_code_system_code,
                   s_panasonic_code_address,
                   s_panasonic_code_command,
-                  s_panasonic_code_non_saving_bits_2);
+                  s_panasonic_code_checksum,
+                  calculated_checksum
+                  );
         }
         break;
     default:
@@ -212,10 +215,11 @@ void PanasonicProtocol::transmitPanasonicCommandFrame(
          uint16_t non_saving_bits_1,
          uint8_t system_code,
          uint8_t address,
-         uint8_t command,
-         uint8_t non_saving_bits_2)
+         uint8_t command)
 {
-    ESP_LOGI(tag.c_str(), "Transmit a PANASONIC command frame non_saving_bits_1=%04X, system_code=%02X, address=%02X, command=%02X, non_saving_bits_2=%02X", non_saving_bits_1, system_code, address, command, non_saving_bits_2);
+    uint8_t checksum = system_code ^ address ^ command; // calculate the checksum
+
+    ESP_LOGI(tag.c_str(), "Transmit a PANASONIC command frame non_saving_bits_1=%04X, system_code=%02X, address=%02X, command=%02X, checksum=%02X", non_saving_bits_1, system_code, address, command, checksum);
 
     // this example won't send PANASONIC frames in a loop
     rmt_transmit_config_t transmit_config = {
@@ -231,7 +235,7 @@ void PanasonicProtocol::transmitPanasonicCommandFrame(
         .system_code = system_code,
         .address = address,
         .command = command,
-        .non_saving_bits_2 = non_saving_bits_2,
+        .checksum = checksum,
     };
     ESP_ERROR_CHECK(rmt_transmit(tx_channel, panasonic_encoder, &scan_code, sizeof(scan_code), &transmit_config));
 }
