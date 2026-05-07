@@ -30,7 +30,7 @@ static size_t rmt_encode_ir_panasonic(rmt_encoder_t *encoder, rmt_channel_handle
     rmt_encoder_handle_t copy_encoder = panasonic_encoder->copy_encoder;
     rmt_encoder_handle_t bytes_encoder = panasonic_encoder->bytes_encoder;
 
-    convert non_saving_bits_1 to big_endian
+    // convert non_saving_bits_1 to big_endian
     uint16_t non_saving_bits_1_be = htons(scan_code->non_saving_bits_1);
     // ptr[0] is 0x34
     // ptr[1] is 0x12 (MSB)
