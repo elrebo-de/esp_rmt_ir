@@ -30,7 +30,8 @@ static size_t rmt_encode_ir_panasonic(rmt_encoder_t *encoder, rmt_channel_handle
     rmt_encoder_handle_t copy_encoder = panasonic_encoder->copy_encoder;
     rmt_encoder_handle_t bytes_encoder = panasonic_encoder->bytes_encoder;
 
-    uint8_t *ptr = (uint8_t *)&scan_code->non_saving_bits_1;
+    convert non_saving_bits_1 to big_endian
+    uint16_t non_saving_bits_1_be = htons(scan_code->non_saving_bits_1);
     // ptr[0] is 0x34
     // ptr[1] is 0x12 (MSB)
 
@@ -47,7 +48,7 @@ static size_t rmt_encode_ir_panasonic(rmt_encoder_t *encoder, rmt_channel_handle
         }
     // fall-through
     case 1: // send non_saving_bits_1 byte1
-        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &htons(scan_code->non_saving_bits_1), sizeof(uint16_t), &session_state);
+        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &non_saving_bits_1_be, sizeof(uint16_t), &session_state);
         if (session_state & RMT_ENCODING_COMPLETE) {
             panasonic_encoder->state = 2; // we can only switch to next state when current encoder finished
         }
