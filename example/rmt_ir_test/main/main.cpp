@@ -23,18 +23,20 @@ extern "C" void callback_onBoardButton_BUTTON_SINGLE_CLICK(void *arg, void *data
 
     iot_button_print_event((button_handle_t)arg);
 
-    // bei jedem BUTTON_SINGLE_CLICK wird der state umgeschaltet
+    // bei jedem BUTTON_SINGLE_CLICK wird der Fernseher ein-/ausgeschaltet
     state = !state;
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
     if (!state) {
+        rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
         rmtIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
         vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
-        rmtIr->transmitPanasonicCommandFrame(0x2002, 0x80, 0x00, 0x3d); // "Power 0/1"
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
     }
     else {
         rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
         vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
-        rmtIr->transmitPanasonicCommandFrame(0x2002, 0x80, 0x00, 0x3d); // "Power 0/1"
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
 
     }
 }
@@ -46,7 +48,36 @@ extern "C" void callback_onBoardButton_BUTTON_DOUBLE_CLICK(void *arg, void *data
 
     iot_button_print_event((button_handle_t)arg);
 
-    // bei jedem BUTTON_DOUBLE_CLICK wird der state umgeschaltet
+    // bei jedem BUTTON_DOUBLE_CLICK wird der AppleTV ein-/ausgeschaltet
+    state = !state;
+    RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
+    if (!state) {
+        rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitNecCommandFrame(0x857a, 0x7609); // "RADIO Scene" (AppleTV)
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xa0); // "AV" (HDMI1)
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x92); // "OK"
+    }
+    else {
+        rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
+
+    }
+}
+
+// Callback function for BUTTON_LONG_PRESS_START event from onBoardButton
+extern "C" void callback_onBoardButton_BUTTON_LONG_PRESS_START_1000(void *arg, void *data)
+{
+    ESP_LOGI("onBoardButton Callback", "for Event BUTTON_LONG_PRESS_START_1000 called!");
+
+    iot_button_print_event((button_handle_t)arg);
+
+    // bei jedem BUTTON_LONG_PRESS_START wird der state umgeschaltet
     state = !state;
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
     rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
@@ -78,6 +109,12 @@ extern "C" void app_main(void)
 
     onBoardButton.RegisterCallbackForEvent(BUTTON_SINGLE_CLICK, callback_onBoardButton_BUTTON_SINGLE_CLICK);
     onBoardButton.RegisterCallbackForEvent(BUTTON_DOUBLE_CLICK, callback_onBoardButton_BUTTON_DOUBLE_CLICK);
+    button_event_args_t args = {
+       { // long_press
+           1000, // press_time
+       }
+    };
+    onBoardButton.RegisterCallbackForEvent(BUTTON_LONG_PRESS_START, &args, callback_onBoardButton_BUTTON_LONG_PRESS_START_1000);
 
     // transmitter test
     //ESP_LOGI(tag, "transmitNecCommandFrame");

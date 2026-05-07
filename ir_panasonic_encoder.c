@@ -5,6 +5,7 @@
  */
 
 #include "esp_check.h"
+#include "lwip/sockets.h" // Wichtig: Für htonl/htons im ESP-IDF
 #include "ir_panasonic_encoder.h"
 
 static const char *TAG = "panasonic_encoder";
@@ -28,6 +29,11 @@ static size_t rmt_encode_ir_panasonic(rmt_encoder_t *encoder, rmt_channel_handle
     ir_panasonic_scan_code_t *scan_code = (ir_panasonic_scan_code_t *)primary_data;
     rmt_encoder_handle_t copy_encoder = panasonic_encoder->copy_encoder;
     rmt_encoder_handle_t bytes_encoder = panasonic_encoder->bytes_encoder;
+
+    uint8_t *ptr = (uint8_t *)&scan_code->non_saving_bits_1;
+    // ptr[0] is 0x34
+    // ptr[1] is 0x12 (MSB)
+
     switch (panasonic_encoder->state) {
     case 0: // send leading code
         encoded_symbols += copy_encoder->encode(copy_encoder, channel, &panasonic_encoder->panasonic_leading_symbol,
@@ -40,8 +46,8 @@ static size_t rmt_encode_ir_panasonic(rmt_encoder_t *encoder, rmt_channel_handle
             goto out; // yield if there's no free space to put other encoding artifacts
         }
     // fall-through
-    case 1: // send non_saving_bits_1
-        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &scan_code->non_saving_bits_1, sizeof(uint16_t), &session_state);
+    case 1: // send non_saving_bits_1 byte1
+        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &htons(scan_code->non_saving_bits_1), sizeof(uint16_t), &session_state);
         if (session_state & RMT_ENCODING_COMPLETE) {
             panasonic_encoder->state = 2; // we can only switch to next state when current encoder finished
         }
@@ -142,31 +148,42 @@ esp_err_t rmt_new_ir_panasonic_encoder(const ir_panasonic_encoder_config_t *conf
 
     // construct the leading code and ending code with RMT symbol format
     panasonic_encoder->panasonic_leading_symbol = (rmt_symbol_word_t) {
-        .level0 = (config->invert_out ? 0 : 1),
+            .level0 = (config->invert_out ? 0 : 1),
+            //.level0 = 1,
         .duration0 = 3380ULL * config->resolution / 1000000,
-        .level1 = (config->invert_out ? 1 : 0),
+            .level1 = (config->invert_out ? 1 : 0),
+            //.level1 = 0,
         .duration1 = 1690ULL * config->resolution / 1000000,
     };
     panasonic_encoder->panasonic_ending_symbol = (rmt_symbol_word_t) {
-        .level0 = (config->invert_out ? 0 : 1),
+            .level0 = (config->invert_out ? 0 : 1),
+            //.level0 = 1,
         .duration0 = 420 * config->resolution / 1000000,
-        .level1 = (config->invert_out ? 1 : 0),
+            .level1 = (config->invert_out ? 1 : 0),
+            //.level1 = 0,
         .duration1 = 0x7FFF,
     };
 
     rmt_bytes_encoder_config_t bytes_encoder_config = {
         .bit0 = {
             .level0 = (config->invert_out ? 0 : 1),
+            //.level0 = 1,
             .duration0 = 420 * config->resolution / 1000000, // T0H=420us
             .level1 = (config->invert_out ? 1 : 0),
+            //.level1 = 0,
             .duration1 = 420 * config->resolution / 1000000, // T0L=420us
         },
         .bit1 = {
             .level0 = (config->invert_out ? 0 : 1),
+            //.level0 = 1,
             .duration0 = 420 * config->resolution / 1000000,  // T1H=420us
             .level1 = (config->invert_out ? 1 : 0),
+            //.level1 = 0,
             .duration1 = 1270 * config->resolution / 1000000, // T1L=1270us
         },
+        .flags = {
+            .msb_first = true,
+        }
     };
     ESP_GOTO_ON_ERROR(rmt_new_bytes_encoder(&bytes_encoder_config, &panasonic_encoder->bytes_encoder), err, TAG, "create bytes encoder failed");
 
