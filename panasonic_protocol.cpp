@@ -14,6 +14,7 @@
 
 #include "sdkconfig.h"
 #include "esp_log.h"
+#include "lwip/sockets.h" // Wichtig: Für htonl/htons im ESP-IDF
 
 #include "ir_panasonic_encoder.h"
 
@@ -83,11 +84,7 @@ bool PanasonicProtocol::panasonic_parse_logic1(rmt_symbol_word_t *rmt_panasonic_
 bool PanasonicProtocol::panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_symbols)
 {
     rmt_symbol_word_t *cur = rmt_panasonic_symbols;
-    // Example: Storing 0x1234 on ESP32 (Little Endian)
     uint16_t non_saving_bits_1 = 0; // first 16 of 20 non saving bits
-    uint8_t *ptr = (uint8_t *)&non_saving_bits_1;
-    // ptr[0] is 0x34
-    // ptr[1] is 0x12 (MSB)
     uint8_t system_code = 0; // last 4 of 20 non saving bits and 4 bit system code
     uint8_t address = 0; // 2 non saving bits and 6 bit address code
     uint8_t command = 0; // 8 bit command code
@@ -100,21 +97,11 @@ bool PanasonicProtocol::panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_s
         return false;
     }
     cur++;
-    for (int i = 7; i >= 0; i--) {
+    for (int i = 15; i >= 0; i--) {
         if (panasonic_parse_logic1(cur)) {
-            ptr[0] |= 1 << i;
+            non_saving_bits_1 |= 1 << i;
         } else if (panasonic_parse_logic0(cur)) {
-            ptr[0] &= ~(1 << i);
-        } else {
-            return false;
-        }
-        cur++;
-    }
-    for (int i = 7; i >= 0; i--) {
-        if (panasonic_parse_logic1(cur)) {
-            ptr[1] |= 1 << i;
-        } else if (panasonic_parse_logic0(cur)) {
-            ptr[1] &= ~(1 << i);
+            non_saving_bits_1 &= ~(1 << i);
         } else {
             return false;
         }
@@ -161,7 +148,8 @@ bool PanasonicProtocol::panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_s
         cur++;
     }
     // save panasonic code data
-    s_panasonic_code_non_saving_bits_1 = non_saving_bits_1;
+    s_panasonic_code_non_saving_bits_1 = ntohs(non_saving_bits_1); // convert from network (big-endian)
+                                                                   // to host (little-endian)
     s_panasonic_code_system_code = system_code;
     s_panasonic_code_address = address;
     s_panasonic_code_command = command;
@@ -178,13 +166,9 @@ void PanasonicProtocol::example_parse_panasonic_frame(rmt_symbol_word_t *rmt_pan
     switch (symbol_num) {
     case 50: // PANASONIC normal frame
         if (panasonic_parse_frame(rmt_panasonic_symbols)) {
-            uint8_t *ptr = (uint8_t *)&s_panasonic_code_non_saving_bits_1;
-            // ptr[0] is 0x34
-            // ptr[1] is 0x12 (MSB)
             uint8_t calculated_checksum = s_panasonic_code_system_code ^ s_panasonic_code_address ^ s_panasonic_code_command;
-            printf("PANASONIC non_saving_bits_1=%02X%02X,\r\n                system_code=%02X,\r\n                    address=%02X,\r\n                    command=%02X,\r\n                   checksum=%02X,\r\n        calculated checksum=%02X\r\n\r\n",
-                   ptr[0],
-                   ptr[1],
+            printf("PANASONIC non_saving_bits_1=%04X,\r\n                system_code=%02X,\r\n                    address=%02X,\r\n                    command=%02X,\r\n                   checksum=%02X,\r\n        calculated checksum=%02X\r\n\r\n",
+                   s_panasonic_code_non_saving_bits_1,
                    s_panasonic_code_system_code,
                    s_panasonic_code_address,
                    s_panasonic_code_command,

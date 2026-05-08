@@ -32,8 +32,6 @@ static size_t rmt_encode_ir_panasonic(rmt_encoder_t *encoder, rmt_channel_handle
 
     // convert non_saving_bits_1 to big_endian
     uint16_t non_saving_bits_1_be = htons(scan_code->non_saving_bits_1);
-    // ptr[0] is 0x34
-    // ptr[1] is 0x12 (MSB)
 
     switch (panasonic_encoder->state) {
     case 0: // send leading code
