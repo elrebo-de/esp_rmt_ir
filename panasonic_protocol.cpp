@@ -148,8 +148,9 @@ bool PanasonicProtocol::panasonic_parse_frame(rmt_symbol_word_t *rmt_panasonic_s
         cur++;
     }
     // save panasonic code data
-    s_panasonic_code_non_saving_bits_1 = ntohs(non_saving_bits_1); // convert from network (big-endian)
+    //s_panasonic_code_non_saving_bits_1 = ntohs(non_saving_bits_1); // convert from network (big-endian)
                                                                    // to host (little-endian)
+    s_panasonic_code_non_saving_bits_1 = non_saving_bits_1;
     s_panasonic_code_system_code = system_code;
     s_panasonic_code_address = address;
     s_panasonic_code_command = command;

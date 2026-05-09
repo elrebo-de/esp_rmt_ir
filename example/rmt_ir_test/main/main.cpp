@@ -9,6 +9,7 @@
 
 #include "rmt_ir.hpp"
 #include "generic_button.hpp"
+#include "generic_nvsflash.hpp"
 #include <iot_button.h>
 
 
@@ -25,19 +26,30 @@ extern "C" void callback_onBoardButton_BUTTON_SINGLE_CLICK(void *arg, void *data
 
     // bei jedem BUTTON_SINGLE_CLICK wird der Fernseher ein-/ausgeschaltet
     state = !state;
+    ESP_LOGI(tag, "state = %d", state);
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
     if (!state) {
         rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
         vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
-        rmtIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
-        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
     }
     else {
-        rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
+        //rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
+        //vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
         vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x40, 0x0c); // "TV"
+    }
 
+    // update state in nvsFlash
+    {
+        /* Open NVS flash Namespace "rmt" for read/write operations */
+        GenericNvsFlash nvsRmt(std::string("nvsRmt"), std::string("rmt"), NVS_READWRITE);
+
+        /* Write value of key "state" in Namespace "rmt" */
+        esp_err_t ret = nvsRmt.SetU8(std::string("state"), (uint8_t) state);
     }
 }
 
@@ -50,8 +62,9 @@ extern "C" void callback_onBoardButton_BUTTON_DOUBLE_CLICK(void *arg, void *data
 
     // bei jedem BUTTON_DOUBLE_CLICK wird der AppleTV ein-/ausgeschaltet
     state = !state;
+    ESP_LOGI(tag, "state = %d", state);
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
-    if (!state) {
+    if (state) {
         rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
         vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
         rmtIr->transmitNecCommandFrame(0x857a, 0x7609); // "RADIO Scene" (AppleTV)
@@ -66,7 +79,15 @@ extern "C" void callback_onBoardButton_BUTTON_DOUBLE_CLICK(void *arg, void *data
         rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
         vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
+    }
 
+    // update state in nvsFlash
+    {
+        /* Open NVS flash Namespace "rmt" for read/write operations */
+        GenericNvsFlash nvsRmt(std::string("nvsRmt"), std::string("rmt"), NVS_READWRITE);
+
+        /* Write value of key "state" in Namespace "rmt" */
+        esp_err_t ret = nvsRmt.SetU8(std::string("state"), (uint8_t) state);
     }
 }
 
@@ -79,10 +100,21 @@ extern "C" void callback_onBoardButton_BUTTON_LONG_PRESS_START_1000(void *arg, v
 
     // bei jedem BUTTON_LONG_PRESS_START wird der state umgeschaltet
     state = !state;
+    ESP_LOGI(tag, "state = %d", state);
+
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
     rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
     vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
     rmtIr->transmitNecCommandFrame(0x857a, 0xe916); // "Tuner"
+
+    // update state in nvsFlash
+    {
+        /* Open NVS flash Namespace "rmt" for read/write operations */
+        GenericNvsFlash nvsRmt(std::string("nvsRmt"), std::string("rmt"), NVS_READWRITE);
+
+        /* Write value of key "state" in Namespace "rmt" */
+        esp_err_t ret = nvsRmt.SetU8(std::string("state"), (uint8_t) state);
+    }
 }
 
 extern "C" void app_main(void)
@@ -92,16 +124,16 @@ extern "C" void app_main(void)
 
     ESP_LOGI(tag, "Example Program");
 
-    /* Initialize NecIr class */
-    ESP_LOGI(tag, "NecIr");
+    /* Initialize RmtIr class */
+    ESP_LOGI(tag, "RmtIr");
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
-    rmtIr->setGpioPins(12,26); // set the GPIO pins
+    rmtIr->setGpioPins(4,0); // set the GPIO pins
     rmtIr->initialize(); // initialize RMT IR
 
     GenericButton onBoardButton(
 	    std::string("onBoardButton"),
 	    /* M5 Atom Lite */
-	    (gpio_num_t) 39, // GPIO
+	    (gpio_num_t) 9, // GPIO
 	    0, // active = DOWN
 	    true, // pull disabled - M5 Atom does not support internal PU/PD on this gpio
 	    std::string("GPIO")
@@ -116,22 +148,29 @@ extern "C" void app_main(void)
     };
     onBoardButton.RegisterCallbackForEvent(BUTTON_LONG_PRESS_START, &args, callback_onBoardButton_BUTTON_LONG_PRESS_START_1000);
 
-    // transmitter test
-    //ESP_LOGI(tag, "transmitNecCommandFrame");
-    //rmtIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
-    //vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 second
-    //rmtIr->transmitNecRepeatFrame();
+    // read state from nvs_flash
+    {
+        /* Open NVS flash Namespace "rmt" for read operations */
+        GenericNvsFlash nvsRmt(std::string("nvsRmt"), std::string("rmt"), NVS_READONLY);
 
-    //vTaskDelay(pdMS_TO_TICKS(30000)); // delay 30 seconds
+        esp_err_t ret = ESP_OK;
 
-    //rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
-    //vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 second
-    //rmtIr->transmitNecRepeatFrame();
+        /* Read value for key "state" from Namespace "rmt" */
+        uint8_t nvsState = nvsRmt.GetU8(std::string("state"), &ret);
+
+        if (ret == ESP_OK) {
+            state = (bool) nvsState;
+        }
+
+        ESP_LOGI(tag, "state = %d", state);
+    }
 
     // receiver test
     while(1) {
-        ESP_LOGI(tag, "receiveNecOrPanasonicFrame");
-        rmtIr->receiveNecOrPanasonicFrame();
+        //ESP_LOGI(tag, "receiveNecOrPanasonicFrame");
+        //rmtIr->receiveNecOrPanasonicFrame();
+        //callback_onBoardButton_BUTTON_SINGLE_CLICK(NULL, NULL);
+        vTaskDelay(pdMS_TO_TICKS(30000)); // delay 30 seconds
     }
 
 }

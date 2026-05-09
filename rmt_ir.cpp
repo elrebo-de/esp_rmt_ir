@@ -56,60 +56,67 @@ void RmtIr::initialize()
 {
     ESP_LOGI(tag.c_str(), "Initializing NEC IR RMT");
 
-    ESP_LOGI(tag.c_str(), "create RMT RX channel");
-    rmt_rx_channel_config_t rx_channel_cfg = {
-        .gpio_num = (gpio_num_t) this->rxPin,
-        .clk_src = RMT_CLK_SRC_DEFAULT,
-        .resolution_hz = EXAMPLE_IR_RESOLUTION_HZ,
-        .mem_block_symbols = 200, // amount of RMT symbols that the channel can store at a time
-        .intr_priority = 0,
-        .flags = {
-            .invert_in = 0,
-            .with_dma = 0, // ESP32: DMA not supported
-            .allow_pd = 0, // ESP32: not able to power down in light sleep
-        }
-    };
-    ESP_ERROR_CHECK(rmt_new_rx_channel(&rx_channel_cfg, &rx_channel));
+    if (this->rxPin != 0) {
+        ESP_LOGI(tag.c_str(), "create RMT RX channel");
+        rmt_rx_channel_config_t rx_channel_cfg = {
+            .gpio_num = (gpio_num_t) this->rxPin,
+            .clk_src = RMT_CLK_SRC_DEFAULT,
+            .resolution_hz = EXAMPLE_IR_RESOLUTION_HZ,
+            .mem_block_symbols = 96, // amount of RMT symbols that the channel can store at a time
+            .intr_priority = 0,
+            .flags = {
+                .invert_in = 0,
+                .with_dma = 0, // ESP32: DMA not supported
+                .allow_pd = 0, // ESP32: not able to power down in light sleep
+            }
+        };
+        ESP_ERROR_CHECK(rmt_new_rx_channel(&rx_channel_cfg, &rx_channel));
 
-    ESP_LOGI(tag.c_str(), "register RX done callback");
-    receive_queue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
-    assert(receive_queue);
-    rmt_rx_event_callbacks_t cbs = {
-        .on_recv_done = example_rmt_rx_done_callback,
-    };
-    ESP_ERROR_CHECK(rmt_rx_register_event_callbacks(rx_channel, &cbs, receive_queue));
+        ESP_LOGI(tag.c_str(), "register RX done callback");
+        receive_queue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
+        assert(receive_queue);
+        rmt_rx_event_callbacks_t cbs = {
+            .on_recv_done = example_rmt_rx_done_callback,
+        };
+        ESP_ERROR_CHECK(rmt_rx_register_event_callbacks(rx_channel, &cbs, receive_queue));
 
-    ESP_LOGI(tag.c_str(), "create RMT TX channel");
-    rmt_tx_channel_config_t tx_channel_cfg = {
-        .gpio_num = (gpio_num_t) this->txPin,
-        .clk_src = RMT_CLK_SRC_DEFAULT,
-        .resolution_hz = EXAMPLE_IR_RESOLUTION_HZ,
-        .mem_block_symbols = 200, // amount of RMT symbols that the channel can store at a time
-        .trans_queue_depth = 4,  // number of transactions that allowed to pending in the background, this example won't queue multiple transactions, so queue depth > 1 is sufficient
-        .intr_priority = 0,
-        .flags = {
-            .invert_out = 1,
-            .with_dma = 0, // ESP32: DMA not supported
-            .allow_pd = 0, // ESP32: not able to power down in light sleep
-            .init_level = 1,
-        }
-    };
-    ESP_ERROR_CHECK(rmt_new_tx_channel(&tx_channel_cfg, &tx_channel));
+        ESP_LOGI(tag.c_str(), "enable RMT RX channels");
+        ESP_ERROR_CHECK(rmt_enable(rx_channel));
+    }
 
-    ESP_LOGI(tag.c_str(), "modulate carrier to TX channel");
-    rmt_carrier_config_t carrier_cfg = {
-        .frequency_hz = 38000, // 38KHz
-        .duty_cycle = 0.33,
-        .flags = {
-            .polarity_active_low = 1,
-            .always_on = 1,
-        }
-    };
-    ESP_ERROR_CHECK(rmt_apply_carrier(tx_channel, &carrier_cfg));
+    if (this->txPin != 0) {
+        ESP_LOGI(tag.c_str(), "create RMT TX channel");
+        rmt_tx_channel_config_t tx_channel_cfg = {
+            .gpio_num = (gpio_num_t) this->txPin,
+            .clk_src = RMT_CLK_SRC_DEFAULT,
+            .resolution_hz = EXAMPLE_IR_RESOLUTION_HZ,
+            .mem_block_symbols = 96, // amount of RMT symbols that the channel can store at a time
+            .trans_queue_depth = 4,  // number of transactions that allowed to pending in the background, this example won't queue multiple transactions, so queue depth > 1 is sufficient
+            .intr_priority = 0,
+            .flags = {
+                .invert_out = 1,
+                .with_dma = 0, // ESP32: DMA not supported
+                .allow_pd = 0, // ESP32: not able to power down in light sleep
+                .init_level = 1,
+            }
+        };
+        ESP_ERROR_CHECK(rmt_new_tx_channel(&tx_channel_cfg, &tx_channel));
 
-    ESP_LOGI(tag.c_str(), "enable RMT TX and RX channels");
-    ESP_ERROR_CHECK(rmt_enable(tx_channel));
-    ESP_ERROR_CHECK(rmt_enable(rx_channel));
+        ESP_LOGI(tag.c_str(), "modulate carrier to TX channel");
+        rmt_carrier_config_t carrier_cfg = {
+            .frequency_hz = 38000, // 38KHz
+            .duty_cycle = 0.33,
+            .flags = {
+                .polarity_active_low = 1,
+                .always_on = 1,
+            }
+        };
+        ESP_ERROR_CHECK(rmt_apply_carrier(tx_channel, &carrier_cfg));
+
+        ESP_LOGI(tag.c_str(), "enable RMT TX channels");
+        ESP_ERROR_CHECK(rmt_enable(tx_channel));
+    }
+
 
     necProtocol = new NecProtocol();
     panasonicProtocol = new PanasonicProtocol();
@@ -142,7 +149,7 @@ void RmtIr::initialize()
     };
 
     // save the received RMT symbols
-    rmt_symbol_word_t raw_symbols[200]; // 64 symbols should be sufficient for a standard NEC frame and for a standard PANASONIC frame
+    rmt_symbol_word_t raw_symbols[96]; // 64 symbols should be sufficient for a standard NEC frame and for a standard PANASONIC frame
     rmt_rx_done_event_data_t rx_data;
     // ready to receive
     ESP_ERROR_CHECK(rmt_receive(rx_channel, raw_symbols, sizeof(raw_symbols), &receive_config));
