@@ -137,6 +137,9 @@ esp_err_t rmt_new_ir_nec_encoder(const ir_nec_encoder_config_t *config, rmt_enco
             .level1 = (config->invert_out ? 1 : 0),
             .duration1 = 1690 * config->resolution / 1000000, // T1L=1690us
         },
+        .flags = {
+            .msb_first = true,
+        }
     };
     ESP_GOTO_ON_ERROR(rmt_new_bytes_encoder(&bytes_encoder_config, &nec_encoder->bytes_encoder), err, TAG, "create bytes encoder failed");
 

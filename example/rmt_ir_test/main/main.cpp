@@ -20,8 +20,16 @@ static const char *tag = "rmt ir test";
 
 bool state = false;
 
+// read value of key from NvsFlash
+uint8_t readNvsFlash(std::string tag, std::string space, std::string key, esp_err_t *ret)
+{
+    /* Open NVS flash Namespace for read operations */
+    GenericNvsFlash nvsRmt(tag, space, NVS_READONLY);
+    return nvsRmt.GetU8(key, ret);
+}
+
 // update value of key in NvsFlash
-esp_err_t updateNvsFlash(std::string tag, std::string space, std::string key, uint8_t value);
+esp_err_t updateNvsFlash(std::string tag, std::string space, std::string key, uint8_t value)
 {
     GenericNvsFlash nvsRmt(tag, space, NVS_READWRITE);
     return nvsRmt.SetU8(key, value);
@@ -39,6 +47,9 @@ extern "C" void callback_onBoardButton_BUTTON_SINGLE_CLICK(void *arg, void *data
     ESP_LOGI(tag, "state = %d", state);
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
     if (!state) {
+        // turn off Panasonic TV
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
+        vTaskDelay(pdMS_TO_TICKS(5000)); // delay 5 seconds
         // turn off shelly plug
         shellyPlug->Switch(false);
         ESP_LOGI(tag, "Response: %s", shellyPlug->ReadResponse().c_str()); // ReadResponse needs 1000 msec
@@ -49,15 +60,15 @@ extern "C" void callback_onBoardButton_BUTTON_SINGLE_CLICK(void *arg, void *data
         ESP_LOGI(tag, "Response: %s", shellyPlug->ReadResponse().c_str()); // ReadResponse needs 1000 msec
 
         vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
-        rmtIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
-        vTaskDelay(pdMS_TO_TICKS(10000)); // delay 10 seconds
-        //rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
-        //vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitNecCommandFrame(0x7a85, 0x037c); // "TV Scene"
+        vTaskDelay(pdMS_TO_TICKS(5000)); // delay 5 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
+        vTaskDelay(pdMS_TO_TICKS(8000)); // delay 8 seconds
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x40, 0x0c); // "TV"
     }
 
     // update state in nvsFlash
-    updateNvsFlash(std::string("nvsRmt"), std::string("rmt"), std::string("state"), uint8_t state);
+    updateNvsFlash(std::string("nvsRmt"), std::string("rmt"), std::string("state"), state);
 }
 
 // Callback function for BUTTON_DOUBLE_CLICK event from onBoardButton
@@ -71,30 +82,31 @@ extern "C" void callback_onBoardButton_BUTTON_DOUBLE_CLICK(void *arg, void *data
     state = !state;
     ESP_LOGI(tag, "state = %d", state);
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
-    if (state) {
-        // turn on shelly plug
-        shellyPlug->Switch(true);
-        ESP_LOGI(tag, "Response: %s", shellyPlug->ReadResponse().c_str()); // ReadResponse needs 1000 msec
-
-        //vTaskDelay(pdMS_TO_TICKS(10000)); // delay 2 seconds
-        //rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
-        vTaskDelay(pdMS_TO_TICKS(2000)); // delay 0.5 seconds
-        rmtIr->transmitNecCommandFrame(0x857a, 0x7609); // "RADIO Scene" (AppleTV)
-        vTaskDelay(pdMS_TO_TICKS(10000)); // delay 0.5 seconds
-        //rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
-        //vTaskDelay(pdMS_TO_TICKS(2000)); // delay 0.5 seconds
-        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xa0); // "AV" (HDMI1)
-        vTaskDelay(pdMS_TO_TICKS(5000)); // delay 0.5 seconds
-        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x92); // "OK"
-    }
-    else {
+    if (!state) {
+        // turn off Panasonic TV
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
+        vTaskDelay(pdMS_TO_TICKS(5000)); // delay 5 seconds
         // turn off shelly plug
         shellyPlug->Switch(false);
         ESP_LOGI(tag, "Response: %s", shellyPlug->ReadResponse().c_str()); // ReadResponse needs 1000 msec
     }
+    else {
+       // turn on shelly plug
+        shellyPlug->Switch(true);
+        ESP_LOGI(tag, "Response: %s", shellyPlug->ReadResponse().c_str()); // ReadResponse needs 1000 msec
+
+        vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
+        rmtIr->transmitNecCommandFrame(0x7a85, 0x0976); // "RADIO Scene" (AppleTV)
+        vTaskDelay(pdMS_TO_TICKS(8000)); // delay 8 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
+        vTaskDelay(pdMS_TO_TICKS(5000)); // delay 5 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xa0); // "AV" (HDMI1)
+        vTaskDelay(pdMS_TO_TICKS(5000)); // delay 5 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x92); // "OK"
+    }
 
     // update state in nvsFlash
-    updateNvsFlash(std::string("nvsRmt"), std::string("rmt"), std::string("state"), uint8_t state);
+    updateNvsFlash(std::string("nvsRmt"), std::string("rmt"), std::string("state"), state);
 }
 
 // Callback function for BUTTON_LONG_PRESS_START event from onBoardButton
@@ -109,29 +121,30 @@ extern "C" void callback_onBoardButton_BUTTON_LONG_PRESS_START_1000(void *arg, v
     ESP_LOGI(tag, "state = %d", state);
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
 
-    if (state) {
-        // turn on shelly plug
-        shellyPlug->Switch(true);
-        ESP_LOGI(tag, "Response: %s", shellyPlug->ReadResponse().c_str()); // ReadResponse needs 1000 msec
-
-        vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
-        rmtIr->transmitNecCommandFrame(0x817e, 0xd52a); // "Power 0/1"
-        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
-        rmtIr->transmitNecCommandFrame(0x857a, 0xe916); // "Tuner"
-    }
-    else {
+    if (!state) {
         // turn off shelly plug
         shellyPlug->Switch(false);
         ESP_LOGI(tag, "Response: %s", shellyPlug->ReadResponse().c_str()); // ReadResponse needs 1000 msec
     }
+    else {
+        // turn on shelly plug
+        shellyPlug->Switch(true);
+        ESP_LOGI(tag, "Response: %s", shellyPlug->ReadResponse().c_str()); // ReadResponse needs 1000 msec
+
+        //vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
+        //rmtIr->transmitNecCommandFrame(0x7e81, 0x2ad5); // "Power 0/1"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitNecCommandFrame(0x7a85, 0x16e9); // "Tuner"
+    }
 
     // update state in nvsFlash
-    updateNvsFlash(std::string("nvsRmt"), std::string("rmt"), std::string("state"), uint8_t state);
+    updateNvsFlash(std::string("nvsRmt"), std::string("rmt"), std::string("state"), state);
 }
 
 extern "C" void app_main(void)
 {
     // short delay to reconnect logging
+
     vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
 
     ESP_LOGI(tag, "Example Program");
@@ -188,27 +201,23 @@ extern "C" void app_main(void)
 
     // read state from nvs_flash
     {
-        /* Open NVS flash Namespace "rmt" for read operations */
-        GenericNvsFlash nvsRmt(std::string("nvsRmt"), std::string("rmt"), NVS_READONLY);
-
         esp_err_t ret = ESP_OK;
-
-        /* Read value for key "state" from Namespace "rmt" */
-        uint8_t nvsState = nvsRmt.GetU8(std::string("state"), &ret);
-
+        uint8_t nvsState = readNvsFlash(std::string("nvsRmt"), std::string("rmt"), std::string("state"), &ret);
         if (ret == ESP_OK) {
             state = (bool) nvsState;
         }
-
         ESP_LOGI(tag, "state = %d", state);
 
-        if (!state) {
+        if (state) {
+            // toggle state to off
+            state = !state;
+            ESP_LOGI(tag, "state = %d", state);
             // turn off shelly plug
             shellyPlug->Switch(false);
             ESP_LOGI(tag, "Response: %s", shellyPlug->ReadResponse().c_str()); // ReadResponse needs 1000 msec
 
             // update state in nvsFlash
-            updateNvsFlash(std::string("nvsRmt"), std::string("rmt"), std::string("state"), uint8_t state);
+            updateNvsFlash(std::string("nvsRmt"), std::string("rmt"), std::string("state"), state);
         }
     }
 
