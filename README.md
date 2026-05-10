@@ -25,12 +25,12 @@ Now you can transmit NEC IR codes with `transmitNecCommandFrame` and `transmitNe
 
 This example sends the IR code for pushing the "TV Scene" button on the remote control of a YAMAHA audio receiver:
 ```C++
-        rmtIr->transmitNecCommandFrame(0x857a, 0x7c03); // "TV Scene"
+        rmtIr->transmitNecCommandFrame((uint8_t)0x7a, (uint8_t)0x03); // "TV Scene"
 ```
 
 This example sends the IR code for pushing the "Power 0/1" button on the remote control of a PANASONIC VIERA TV:
 ```C++
-        rmtIr->transmitPanasonicCommandFrame(0x2002, 0x80, 0x00, 0x3d);  // "Power 0/1"
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc);  // "Power 0/1"
 ```
 
 It is also possible to receive IR signals with an IR receiver.
@@ -69,6 +69,8 @@ The beginning of the class definition is shown here:
 
         void initialize();
 
+        void transmitNecCommandFrame(uint8_t address, uint8_t code);
+        void transmitNecCommandFrame(uint16_t address, uint8_t code);
         void transmitNecCommandFrame(uint16_t address, uint16_t code);
         void transmitNecRepeatFrame();
 
@@ -82,7 +84,11 @@ The beginning of the class definition is shown here:
 # ToDo
 Currently only the NEC and the PANASONIC protocols are implemented.
 
-Currently the only tested IR sender is the built-in IR LED in M5 Atom Lite. All configurations are fixed for this environment. They have to be exposed to the class user in later versions.
+Currently the only tested IR senders are 
+* the built-in IR LED in M5 Atom Lite and
+* the seeed Grove IR sender board.
+
+All configurations are fixed for these environments. They have to be exposed to the class user in later versions.
 
 Currently there is no access to the received IR signals, they are only printed to the log. This has to be changed in a later version.
 
