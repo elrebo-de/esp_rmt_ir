@@ -1,4 +1,4 @@
-version: "1.2.0"
+version: "1.2.1"
 license: "Apache2.0"
 description: "IR transmitter/receiver component using NEC protocol for ESP-IDF version 5.5.0+ using a C++ class"
 url: "https://elrebo.de/index.php/2026/05/05/rmt_ir/"
