@@ -32,7 +32,9 @@ class NecProtocol
         bool nec_parse_frame_repeat(rmt_symbol_word_t *rmt_nec_symbols);
         void example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t symbol_num);
 
-        void transmitNecCommandFrame(rmt_channel_handle_t tx_channel, uint16_t address, uint16_t code);
+        void transmitNecCommandFrame(rmt_channel_handle_t tx_channel, uint8_t address, uint8_t command);
+        void transmitNecCommandFrame(rmt_channel_handle_t tx_channel, uint16_t address, uint8_t command);
+        void transmitNecCommandFrame(rmt_channel_handle_t tx_channel, uint16_t address, uint16_t command);
         void transmitNecRepeatFrame(rmt_channel_handle_t tx_channel);
         void receiveNecFrame(rmt_channel_handle_t rx_channel, QueueHandle_t receive_queue);
 

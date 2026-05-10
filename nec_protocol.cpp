@@ -191,10 +191,49 @@ void NecProtocol::receiveNecFrame(
 // Function to transmit a NEC command frame
 void NecProtocol::transmitNecCommandFrame(
          rmt_channel_handle_t tx_channel,
-         uint16_t address,
-         uint16_t code)
+         uint8_t address,
+         uint8_t command)
 {
-    ESP_LOGI(tag.c_str(), "Transmit a NEC command frame address=%04X, code=%04X", address, code);
+    ESP_LOGI(tag.c_str(), "Prepare a NEC command frame address=%02X, code=%02X", address, command);
+
+    uint8_t address_inverted = ~address;
+    uint16t address16;
+    uint8_t *ptr[] = &address16;
+    *ptr[0] = address;
+    *ptr[1] = address_inverted;
+
+    uint8_t command_inverted = ~command;
+    uint16t command16;
+    uint8_t *ptr[] = &command16;
+    *ptr[0] = command;
+    *ptr[1] = command_inverted;
+
+    this->transmitNecCommandFrame(tx_channel, address16, command16);
+}
+
+// Function to transmit a NEC command frame
+void NecProtocol::transmitNecCommandFrame(
+         rmt_channel_handle_t tx_channel,
+         uint16_t address,
+         uint8_t command)
+{
+    ESP_LOGI(tag.c_str(), "Prepare a NEC command frame address=%04X, code=%02X", address, command);
+
+    uint8_t command_inverted = ~command;
+    uint16t command16;
+    uint8_t *ptr[] = &command16;
+    *ptr[0] = command;
+    *ptr[1] = command_inverted;
+    this->transmitNecCommandFrame(tx_channel, address, command16);
+}
+
+// Function to transmit a NEC command frame
+void NecProtocol::transmitNecCommandFrame(
+         rmt_channel_handle_t tx_channel,
+         uint16_t address,
+         uint16_t command)
+{
+    ESP_LOGI(tag.c_str(), "Transmit a NEC command frame address=%04X, code=%04X", address, command);
 
     // this example won't send NEC frames in a loop
     rmt_transmit_config_t transmit_config = {
@@ -207,7 +246,7 @@ void NecProtocol::transmitNecCommandFrame(
 
     const ir_nec_scan_code_t scan_code = {
         .address = address,
-        .command = code,
+        .command = command,
     };
     ESP_ERROR_CHECK(rmt_transmit(tx_channel, nec_encoder, &scan_code, sizeof(scan_code), &transmit_config));
 }
