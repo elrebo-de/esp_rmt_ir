@@ -1,24 +1,24 @@
 ## RMT IR Example
 
-This example demonstrates how to utilize the `rmt_ir` component to receive / transmit remote control IR signals.
+This example demonstrates how to utilize the `rmt_ir` component to receive/transmit remote control IR signals.
 
-A button click switches on/off a YAMAHA audio receiver and a PANASONIC television.
+A button click switches on/off a YAMAHA audio receiver and a PANASONIC television for watching TV (Receiver: AV1, TV: TV).
 
-A button double click switches on/off the tuner of a YAMAHA audio receiver.
+A button double click switches on/off a YAMAHA audioreceiver and a PANASONIC television for watching Apple TV (Receiver: HDMI1, TV: AV:HDMI1).
 
-
+A button long click switches on/off the tuner of a YAMAHA audio receiver for listening to the radio.
 
 ## Hardware
 
-* An IR LED connected to a GPIO pin is needed to transmit IR signals.
-* An IR sensor connected to a GPIO pin is needed to receive IR signals.
+* An M5 ATOM LITE Esp32 SoC with IR sender on GPIO 12 and onBoard button on GPIO 39.
+* An IR sensor connected to the GPIO pin 26 is needed to receive IR signals.
 
 ## Build and Flash
 
 Build the project and flash it to the board, then run the monitor tool to view the serial output:
 
 * Run `source <directory with ESP-IDF version>/export.sh` to set IDF environment
-* Run `idf.py set-target esp32xx` to set target chip
+* Run `idf.py set-target esp32` to set target chip ESP32
 * Run `idf.py -p PORT flash monitor` to build, flash and monitor the project
 
 (To exit the serial monitor, type `Ctrl-]` (or on a Mac `Ctrl-Option-6`).
@@ -28,8 +28,9 @@ See the Getting Started Guide for all the steps to configure and use the ESP-IDF
 ## Function
 The IR receiver and transmitter is initialized and a button is defined.
 Two callback functions are defined for the events
-* BUTTON_SINGLE_CLICK and
-* BUTTON_DOUBLE_CLICK.
+* BUTTON_SINGLE_CLICK,
+* BUTTON_DOUBLE_CLICK and
+* BUTTON_LONG_PRESS_START with press_time 1000 msec.
 
 ### Single Click
 In case of a single_click a NEC command frame is sent to the YAMAHA audio receiver and a PANASONIC command frame is sent to the PANASONIC TV.

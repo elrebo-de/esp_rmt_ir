@@ -122,6 +122,16 @@ void RmtIr::initialize()
     panasonicProtocol = new PanasonicProtocol();
 }
 
+    void RmtIr::transmitNecCommandFrame(uint8_t address, uint8_t code)
+    {
+        this->necProtocol->transmitNecCommandFrame(tx_channel, address, code);
+    }
+
+    void RmtIr::transmitNecCommandFrame(uint16_t address, uint8_t code)
+    {
+        this->necProtocol->transmitNecCommandFrame(tx_channel, address, code);
+    }
+
     void RmtIr::transmitNecCommandFrame(uint16_t address, uint16_t code)
     {
         this->necProtocol->transmitNecCommandFrame(tx_channel, address, code);

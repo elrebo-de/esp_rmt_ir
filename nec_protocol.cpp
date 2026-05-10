@@ -14,6 +14,7 @@
 
 #include "sdkconfig.h"
 #include "esp_log.h"
+#include "lwip/sockets.h" // Wichtig: Für htonl/htons im ESP-IDF
 
 #include "ir_nec_encoder.h"
 
@@ -114,8 +115,8 @@ bool NecProtocol::nec_parse_frame(rmt_symbol_word_t *rmt_nec_symbols)
         cur++;
     }
     // save address and command
-    s_nec_code_address = address;
-    s_nec_code_command = command;
+    s_nec_code_address = ntohs(address);
+    s_nec_code_command = ntohs(command);
     return true;
 }
 
@@ -197,16 +198,10 @@ void NecProtocol::transmitNecCommandFrame(
     ESP_LOGI(tag.c_str(), "Prepare a NEC command frame address=%02X, code=%02X", address, command);
 
     uint8_t address_inverted = ~address;
-    uint16t address16;
-    uint8_t *ptr[] = &address16;
-    *ptr[0] = address;
-    *ptr[1] = address_inverted;
+    uint16_t address16 = (((uint16_t) address) << 8) + (uint16_t) address_inverted;
 
     uint8_t command_inverted = ~command;
-    uint16t command16;
-    uint8_t *ptr[] = &command16;
-    *ptr[0] = command;
-    *ptr[1] = command_inverted;
+    uint16_t command16 = (((uint16_t) command) << 8) + (uint16_t) command_inverted;
 
     this->transmitNecCommandFrame(tx_channel, address16, command16);
 }
@@ -220,10 +215,8 @@ void NecProtocol::transmitNecCommandFrame(
     ESP_LOGI(tag.c_str(), "Prepare a NEC command frame address=%04X, code=%02X", address, command);
 
     uint8_t command_inverted = ~command;
-    uint16t command16;
-    uint8_t *ptr[] = &command16;
-    *ptr[0] = command;
-    *ptr[1] = command_inverted;
+    uint16_t command16 = (((uint16_t) command) << 8) + (uint16_t) command_inverted;
+
     this->transmitNecCommandFrame(tx_channel, address, command16);
 }
 

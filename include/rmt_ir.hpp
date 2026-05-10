@@ -37,6 +37,8 @@ class RmtIr
 
         void initialize();
 
+        void transmitNecCommandFrame(uint8_t address, uint8_t code);
+        void transmitNecCommandFrame(uint16_t address, uint8_t code);
         void transmitNecCommandFrame(uint16_t address, uint16_t code);
         void transmitNecRepeatFrame();
 
