@@ -5,6 +5,7 @@
  */
 
 #include "esp_check.h"
+#include "lwip/sockets.h" // Wichtig: Für htonl/htons im ESP-IDF
 #include "ir_nec_encoder.h"
 
 static const char *TAG = "nec_encoder";
@@ -28,6 +29,12 @@ static size_t rmt_encode_ir_nec(rmt_encoder_t *encoder, rmt_channel_handle_t cha
     ir_nec_scan_code_t *scan_code = (ir_nec_scan_code_t *)primary_data;
     rmt_encoder_handle_t copy_encoder = nec_encoder->copy_encoder;
     rmt_encoder_handle_t bytes_encoder = nec_encoder->bytes_encoder;
+
+    // convert address to big_endian
+    uint16_t address_be = htons(scan_code->address);
+    // convert command to big_endian
+    uint16_t command_be = htons(scan_code->command);
+
     switch (nec_encoder->state) {
     case 0: // send leading code
         encoded_symbols += copy_encoder->encode(copy_encoder, channel, &nec_encoder->nec_leading_symbol,
@@ -41,7 +48,7 @@ static size_t rmt_encode_ir_nec(rmt_encoder_t *encoder, rmt_channel_handle_t cha
         }
     // fall-through
     case 1: // send address
-        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &scan_code->address, sizeof(uint16_t), &session_state);
+        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &address_be, sizeof(uint16_t), &session_state);
         if (session_state & RMT_ENCODING_COMPLETE) {
             nec_encoder->state = 2; // we can only switch to next state when current encoder finished
         }
@@ -51,7 +58,7 @@ static size_t rmt_encode_ir_nec(rmt_encoder_t *encoder, rmt_channel_handle_t cha
         }
     // fall-through
     case 2: // send command
-        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &scan_code->command, sizeof(uint16_t), &session_state);
+        encoded_symbols += bytes_encoder->encode(bytes_encoder, channel, &command_be, sizeof(uint16_t), &session_state);
         if (session_state & RMT_ENCODING_COMPLETE) {
             nec_encoder->state = 3; // we can only switch to next state when current encoder finished
         }
@@ -137,9 +144,9 @@ esp_err_t rmt_new_ir_nec_encoder(const ir_nec_encoder_config_t *config, rmt_enco
             .level1 = (config->invert_out ? 1 : 0),
             .duration1 = 1690 * config->resolution / 1000000, // T1L=1690us
         },
-        .flags = {
-            .msb_first = true,
-        }
+        //.flags = {
+        //    .msb_first = true,
+        //}
     };
     ESP_GOTO_ON_ERROR(rmt_new_bytes_encoder(&bytes_encoder_config, &nec_encoder->bytes_encoder), err, TAG, "create bytes encoder failed");
 
