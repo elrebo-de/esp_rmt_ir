@@ -17,11 +17,12 @@
 
 #include "ir_nec_encoder.h"
 #include "ir_panasonic_encoder.h"
+#include "ir_pioneer_encoder.h"
 
 #define EXAMPLE_IR_RESOLUTION_HZ     1000000 // 1MHz resolution, 1 tick = 1us
-#define EXAMPLE_IR_TX_GPIO_NUM       12
-#define EXAMPLE_IR_RX_GPIO_NUM       26
-#define EXAMPLE_IR_NEC_DECODE_MARGIN 200     // Tolerance for parsing RMT symbols into bit stream
+//#define EXAMPLE_IR_TX_GPIO_NUM       12
+//#define EXAMPLE_IR_RX_GPIO_NUM       26
+//#define EXAMPLE_IR_NEC_DECODE_MARGIN 200     // Tolerance for parsing RMT symbols into bit stream
 
 #include "rmt_ir.hpp"
 
@@ -102,17 +103,6 @@ void RmtIr::initialize()
         };
         ESP_ERROR_CHECK(rmt_new_tx_channel(&tx_channel_cfg, &tx_channel));
 
-        ESP_LOGI(tag.c_str(), "modulate carrier to TX channel");
-        rmt_carrier_config_t carrier_cfg = {
-            .frequency_hz = 38000, // 38KHz
-            .duty_cycle = 0.33,
-            .flags = {
-                .polarity_active_low = 1,
-                .always_on = 1,
-            }
-        };
-        ESP_ERROR_CHECK(rmt_apply_carrier(tx_channel, &carrier_cfg));
-
         ESP_LOGI(tag.c_str(), "enable RMT TX channels");
         ESP_ERROR_CHECK(rmt_enable(tx_channel));
     }
@@ -120,6 +110,7 @@ void RmtIr::initialize()
 
     necProtocol = new NecProtocol();
     panasonicProtocol = new PanasonicProtocol();
+    pioneerProtocol = new PioneerProtocol();
 }
 
     void RmtIr::transmitNecCommandFrame(uint8_t address, uint8_t code)
@@ -147,12 +138,22 @@ void RmtIr::initialize()
         this->panasonicProtocol->transmitPanasonicCommandFrame(tx_channel, non_saving_bits_1, system_code, address, command);
     }
 
-    void RmtIr::receiveNecOrPanasonicFrame()
+    void RmtIr::transmitPioneerCommandFrame(uint8_t address1, uint8_t command1, uint8_t address2, uint8_t command2)
+    {
+        this->pioneerProtocol->transmitPioneerCommandFrame(tx_channel, address1, command1, address2, command2);
+    }
+
+    void RmtIr::transmitPioneerCommandFrame(uint16_t address1, uint16_t command1, uint16_t address2, uint16_t command2)
+    {
+        this->pioneerProtocol->transmitPioneerCommandFrame(tx_channel, address1, command1, address2, command2);
+    }
+
+    void RmtIr::receiveRmtFrame()
     {
     // the following timing requirement is based on NEC protocol, also usable for PANASONIC protocol
     rmt_receive_config_t receive_config = {
         .signal_range_min_ns = 1250,     // the shortest duration for NEC signal is 560us, 1250ns < 560us, valid signal won't be treated as noise
-        .signal_range_max_ns = 20000000, // the longest duration for NEC signal is 9000us, 12000000ns > 9000us, the receive won't stop early
+        .signal_range_max_ns = 30000000, // the longest duration for NEC (Pioneer) signal is 24000us, 30000000ns > 25000us, the receive won't stop early
         .flags = {
             .en_partial_rx = 0, // ESP32: partial receive not supported
         }
@@ -169,26 +170,33 @@ void RmtIr::initialize()
        ESP_LOGI(this->tag.c_str(), "wait for RX done signal");
     }
 
-    printf("NEC or PANASONIC frame start---\r\n");
+    printf("Frame start---\r\n");
     for (size_t i = 0; i < rx_data.num_symbols; i++) {
         printf("{%d:%d},{%d:%d}\r\n", rx_data.received_symbols[i].level0, rx_data.received_symbols[i].duration0,
                rx_data.received_symbols[i].level1, rx_data.received_symbols[i].duration1);
     }
-    printf("---NEC or PANASONIC frame end: ");
+    printf("---Frame end: ");
     // decode RMT symbols
     printf("symbol_num=%i\r\n", rx_data.num_symbols);
 
     // parse the receive symbols and print the result
+    // YAMAHA receiver
     if (rx_data.num_symbols == 34 || rx_data.num_symbols == 2)
     {
         this->necProtocol->example_parse_nec_frame(rx_data.received_symbols, rx_data.num_symbols);
     }
+    // Panasonic TV
     else if (rx_data.num_symbols == 50)
     {
         this->panasonicProtocol->example_parse_panasonic_frame(rx_data.received_symbols, rx_data.num_symbols);
     }
+    // Pioneer DVD player
+    else if (rx_data.num_symbols == 68)
+    {
+        this->pioneerProtocol->example_parse_pioneer_frame(rx_data.received_symbols, rx_data.num_symbols);
+    }
     else
     {
-        printf("Unknown NEC or PANASONIC frame\r\n\r\n");
+        printf("Unknown frame\r\n\r\n");
     }
 }

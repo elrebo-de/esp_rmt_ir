@@ -15,6 +15,7 @@
 
 #include "nec_protocol.hpp"
 #include "panasonic_protocol.hpp"
+#include "pioneer_protocol.hpp"
 
 /* class RmtIr
    Class to implement an IR transmitter / receiver which uses different protocols.
@@ -44,10 +45,14 @@ class RmtIr
 
         void transmitPanasonicCommandFrame(uint16_t non_saving_bits_1, uint8_t system_code, uint8_t address, uint8_t command);
 
-        void receiveNecOrPanasonicFrame();
+        void transmitPioneerCommandFrame(uint8_t address1, uint8_t command1, uint8_t address2, uint8_t command2);
+        void transmitPioneerCommandFrame(uint16_t address1, uint16_t command1, uint16_t address2, uint16_t command2);
+
+        void receiveRmtFrame();
 
         NecProtocol *necProtocol;
         PanasonicProtocol *panasonicProtocol;
+        PioneerProtocol *pioneerProtocol;
 
     private:
         RmtIr() {}                 // Constructor
@@ -63,11 +68,11 @@ class RmtIr
 
         QueueHandle_t receive_queue;
 
-        /**
-         * @brief Saving RMT decode results
-         */
-        uint16_t s_nec_code_address;
-        uint16_t s_nec_code_command;
+        // /**
+        //  * @brief Saving RMT decode results
+        //  */
+        // uint16_t s_nec_code_address;
+        // uint16_t s_nec_code_command;
 
     public:
         RmtIr(RmtIr const&) = delete;

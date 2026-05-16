@@ -123,7 +123,7 @@ NEC or PANASONIC frame start---
 ---NEC or PANASONIC frame end: symbol_num=34
 NEC Address=7A85, Command=09F6
 
-I (319701) rmt ir test: receiveNecOrPanasonicFrame
+I (319701) rmt ir test: receiveRmtFrame
 I (320701) RmtIr: wait for RX done signal
 NEC or PANASONIC frame start---
 {0:3406},{1:1673}
@@ -184,6 +184,6 @@ PANASONIC non_saving_bits_1=4004,
                    checksum=BD,
         calculated checksum=BD
 
-I (324731) rmt ir test: receiveNecOrPanasonicFrame
+I (324731) rmt ir test: receiveRmtFrame
 I (325731) RmtIr: wait for RX done signal
 ```

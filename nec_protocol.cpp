@@ -21,13 +21,13 @@
 #define EXAMPLE_IR_RESOLUTION_HZ     1000000 // 1MHz resolution, 1 tick = 1us
 #define EXAMPLE_IR_TX_GPIO_NUM       12
 #define EXAMPLE_IR_RX_GPIO_NUM       26
-#define EXAMPLE_IR_NEC_DECODE_MARGIN 200     // Tolerance for parsing RMT symbols into bit stream
+#define EXAMPLE_IR_NEC_DECODE_MARGIN 350     // Tolerance for parsing RMT symbols into bit stream
 
 /**
  * @brief NEC timing spec
  */
-#define NEC_LEADING_CODE_DURATION_0  9000
-#define NEC_LEADING_CODE_DURATION_1  4500
+#define NEC_LEADING_CODE_DURATION_0  8800
+#define NEC_LEADING_CODE_DURATION_1  4250
 #define NEC_PAYLOAD_ZERO_DURATION_0  560
 #define NEC_PAYLOAD_ZERO_DURATION_1  560
 #define NEC_PAYLOAD_ONE_DURATION_0   560
@@ -241,7 +241,21 @@ void NecProtocol::transmitNecCommandFrame(
         .address = address,
         .command = command,
     };
+
+    ESP_LOGI(tag.c_str(), "apply 38kHz carrier to TX channel");
+    rmt_carrier_config_t carrier_cfg = {
+        .frequency_hz = 38000, // 38KHz
+        .duty_cycle = 0.33,
+        .flags = {
+            .polarity_active_low = 1,
+            .always_on = 1,
+        }
+    };
+    ESP_ERROR_CHECK(rmt_disable(tx_channel));
+    ESP_ERROR_CHECK(rmt_apply_carrier(tx_channel, &carrier_cfg));
+    ESP_ERROR_CHECK(rmt_enable(tx_channel));
     ESP_ERROR_CHECK(rmt_transmit(tx_channel, nec_encoder, &scan_code, sizeof(scan_code), &transmit_config));
+    //vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 seconds
 }
 
 // Function to transmit a NEC repeat frame

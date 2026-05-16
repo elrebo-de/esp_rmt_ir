@@ -16,6 +16,17 @@ static const char *tag = "rmt ir test";
 
 bool state = false;
 
+void switchAllOff(RmtIr* rmtIr) {
+        // YAMAHA Receiver
+        rmtIr->transmitNecCommandFrame((uint8_t)0x7a, (uint8_t)0x1e); // "STANDBY"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        // Panasonic TV
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xfc); // "Power Off"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        // Pioneer DVD Player
+        rmtIr->transmitPioneerCommandFrame((uint8_t)0xa3, (uint8_t)0x99, (uint8_t)0xaf, (uint8_t)0xbb); // "Shift"
+}
+
 // Callback function for BUTTON_SINGLE_CLICK event from onBoardButton
 extern "C" void callback_onBoardButton_BUTTON_SINGLE_CLICK(void *arg, void *data)
 {
@@ -28,16 +39,15 @@ extern "C" void callback_onBoardButton_BUTTON_SINGLE_CLICK(void *arg, void *data
     ESP_LOGI(tag, "state = %d", state);
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
     if (!state) {
-        // turn off Panasonic TV
-        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
-        vTaskDelay(pdMS_TO_TICKS(5000)); // delay 5 seconds
-        rmtIr->transmitNecCommandFrame((uint8_t)0x7e, (uint8_t)0x2a); // "Power 0/1"
+        switchAllOff(rmtIr);
     }
     else {
-        rmtIr->transmitNecCommandFrame((uint8_t)0x7a, (uint8_t)0x03); // "TV Scene"
-        vTaskDelay(pdMS_TO_TICKS(5000)); // delay 5 seconds
-        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
-        vTaskDelay(pdMS_TO_TICKS(8000)); // delay 8 seconds
+        // YAMAHA receiver
+        rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x037c); // "TV Scene"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        // Panasonic TV
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x7c); // "Power On"
+        vTaskDelay(pdMS_TO_TICKS(4000)); // delay 4 seconds
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x40, 0x0c); // "TV"
     }
 }
@@ -54,18 +64,49 @@ extern "C" void callback_onBoardButton_BUTTON_DOUBLE_CLICK(void *arg, void *data
     ESP_LOGI(tag, "state = %d", state);
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
     if (!state) {
-        // turn off Panasonic TV
-        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
-        vTaskDelay(pdMS_TO_TICKS(5000)); // delay 5 seconds
-        rmtIr->transmitNecCommandFrame((uint8_t)0x7e, (uint8_t)0x2a); // "Power 0/1"
+        switchAllOff(rmtIr);
     }
     else {
-        rmtIr->transmitNecCommandFrame((uint8_t)0x7a, (uint8_t)0x09); // "RADIO Scene" (AppleTV)
-        vTaskDelay(pdMS_TO_TICKS(5000)); // delay 5 seconds
-        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xbc); // "Power 0/1"
-        vTaskDelay(pdMS_TO_TICKS(5000)); // delay 5 seconds
+        // YAMAHA receiver
+        rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x0976); // "TV Scene"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        // Panasonic TV
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x7c); // "Power On"
+        vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xa0); // "AV" (HDMI1)
-        vTaskDelay(pdMS_TO_TICKS(5000)); // delay 5 seconds
+        vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x92); // "OK"
+    }
+}
+
+// Callback function for BUTTON_MULTIPLE_CLICK event from onBoardButton
+extern "C" void callback_onBoardButton_BUTTON_MULTIPLE_CLICK_3(void *arg, void *data)
+{
+    ESP_LOGI("Button Callback", "for Event BUTTON_MULTIPLE_CLICK_3 called!");
+
+    iot_button_print_event((button_handle_t)arg);
+
+    // bei jedem BUTTON_MULTIPLE_CLICK_3 wird der DVD-Player ein-/ausgeschaltet
+    state = !state;
+    ESP_LOGI(tag, "state = %d", state);
+    RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
+    if (!state) {
+        switchAllOff(rmtIr);
+    }
+    else {
+        // YAMAHA Receiver
+        rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x0976); // "BD/DVD Scene"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        // Pioneer DVD Player
+        rmtIr->transmitPioneerCommandFrame((uint8_t)0xa3, (uint8_t)0x99, (uint8_t)0xaf, (uint8_t)0xba); // "ON"
+        vTaskDelay(pdMS_TO_TICKS(200)); // delay 0.05 seconds
+        rmtIr->transmitPioneerCommandFrame((uint8_t)0xa3, (uint8_t)0x99, (uint8_t)0xaf, (uint8_t)0xb6); // "OPEN/CLOSE"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        // Panasonic TV
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x7c); // "Power On"
+        vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xa0); // "AV" (HDMI1)
+        vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x92); // "OK"
     }
 }
@@ -83,12 +124,12 @@ extern "C" void callback_onBoardButton_BUTTON_LONG_PRESS_START_1000(void *arg, v
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
 
     if (!state) {
-        rmtIr->transmitNecCommandFrame((uint8_t)0x7e, (uint8_t)0x2a); // "Power 0/1"
+        switchAllOff(rmtIr);
     }
     else {
-        rmtIr->transmitNecCommandFrame((uint8_t)0x7e, (uint8_t)0x2a); // "Power 0/1"
+        rmtIr->transmitNecCommandFrame((uint16_t)0x7e81, (uint16_t)0x2ad5); // "Power 0/1"
         vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
-        rmtIr->transmitNecCommandFrame((uint8_t)0x7a, (uint8_t)0x16); // "Tuner"
+        rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x16e9); // "Tuner"
     }
 }
 
@@ -103,7 +144,8 @@ extern "C" void app_main(void)
     /* Initialize RmtIr class */
     ESP_LOGI(tag, "RmtIr");
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
-    rmtIr->setGpioPins(12,26); // set the GPIO pins
+    rmtIr->setGpioPins(32,0); // set the GPIO pins: external IR emitter, no IR receiver
+    //rmtIr->setGpioPins(12,26); // set the GPIO pins: internal IR emitter, external IR receiver
     rmtIr->initialize(); // initialize RMT IR
 
     GenericButton onBoardButton(
@@ -117,18 +159,24 @@ extern "C" void app_main(void)
 
     onBoardButton.RegisterCallbackForEvent(BUTTON_SINGLE_CLICK, callback_onBoardButton_BUTTON_SINGLE_CLICK);
     onBoardButton.RegisterCallbackForEvent(BUTTON_DOUBLE_CLICK, callback_onBoardButton_BUTTON_DOUBLE_CLICK);
-    button_event_args_t args = {
+    button_event_args_t press_time = {
        { // long_press
            1000, // press_time
        }
     };
-    onBoardButton.RegisterCallbackForEvent(BUTTON_LONG_PRESS_START, &args, callback_onBoardButton_BUTTON_LONG_PRESS_START_1000);
+    onBoardButton.RegisterCallbackForEvent(BUTTON_LONG_PRESS_START, &press_time, callback_onBoardButton_BUTTON_LONG_PRESS_START_1000);
+    button_event_args_t clicks = {
+       { // multiple_clicks
+           3, // clicks
+       }
+    };
+    onBoardButton.RegisterCallbackForEvent(BUTTON_MULTIPLE_CLICK, &clicks, callback_onBoardButton_BUTTON_MULTIPLE_CLICK_3);
 
     // receiver test
     while(1) {
-        ESP_LOGI(tag, "receiveNecOrPanasonicFrame");
-        rmtIr->receiveNecOrPanasonicFrame();
-        vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 seconds
+        ESP_LOGI(tag, "receiveRmtFrame");
+        //rmtIr->receiveRmtFrame();
+        vTaskDelay(pdMS_TO_TICKS(300000)); // delay 300 seconds
     }
 
 }

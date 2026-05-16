@@ -240,7 +240,21 @@ void PanasonicProtocol::transmitPanasonicCommandFrame(
         .command = command,
         .checksum = checksum,
     };
+
+    ESP_LOGI(tag.c_str(), "apply 38kHz carrier to TX channel");
+    rmt_carrier_config_t carrier_cfg = {
+        .frequency_hz = 38000, // 38KHz
+        .duty_cycle = 0.33,
+        .flags = {
+            .polarity_active_low = 1,
+            .always_on = 1,
+        }
+    };
+    ESP_ERROR_CHECK(rmt_disable(tx_channel));
+    ESP_ERROR_CHECK(rmt_apply_carrier(tx_channel, &carrier_cfg));
+    ESP_ERROR_CHECK(rmt_enable(tx_channel));
     ESP_ERROR_CHECK(rmt_transmit(tx_channel, panasonic_encoder, &scan_code, sizeof(scan_code), &transmit_config));
+    //vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 seconds
 }
 
 

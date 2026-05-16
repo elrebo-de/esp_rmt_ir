@@ -38,7 +38,7 @@ It is also possible to receive IR signals with an IR receiver.
 This example receives IR signals in an endless loop and prints the received data in the log:
 ```C++
     while(1) {
-        rmtIr->receiveNecOrPanasonicFrame();
+        rmtIr->receiveRmtFrame();
     }
 ```
 
@@ -76,7 +76,7 @@ The beginning of the class definition is shown here:
 
         void transmitPanasonicCommandFrame(uint16_t non_saving_bits_1, uint8_t system_code, uint8_t address, uint8_t command);
 
-        void receiveNecOrPanasonicFrame();
+        void receiveRmtFrame();
 
         ...
 ```
