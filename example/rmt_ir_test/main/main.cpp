@@ -73,10 +73,8 @@ extern "C" void callback_onBoardButton_BUTTON_DOUBLE_CLICK(void *arg, void *data
         // Panasonic TV
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x7c); // "Power On"
         vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
-        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xa0); // "AV" (HDMI1)
-        vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
-        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x92); // "OK"
-    }
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x20, 0x0d); // "HDMI1" (direct)
+     }
 }
 
 // Callback function for BUTTON_MULTIPLE_CLICK event from onBoardButton
@@ -105,7 +103,7 @@ extern "C" void callback_onBoardButton_BUTTON_MULTIPLE_CLICK_3(void *arg, void *
         // Panasonic TV
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x7c); // "Power On"
         vTaskDelay(pdMS_TO_TICKS(4000)); // delay 4 seconds
-        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x40); // "AV2"
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x40); // "AV2" (direct)
     }
 }
 
@@ -125,9 +123,9 @@ extern "C" void callback_onBoardButton_BUTTON_LONG_PRESS_START_1000(void *arg, v
         switchAllOff(rmtIr);
     }
     else {
-        rmtIr->transmitNecCommandFrame((uint16_t)0x7e81, (uint16_t)0x7e81); // "Power On"
-        vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
-        rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x16e9); // "Tuner"
+        rmtIr->transmitNecCommandFrame((uint8_t)0x7a, (uint8_t)0x1d); // "POWER ON"
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitNecCommandFrame((uint8_t)0x7a, (uint8_t)0x16); // "Tuner"
     }
 }
 
