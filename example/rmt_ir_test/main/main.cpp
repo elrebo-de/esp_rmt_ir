@@ -95,19 +95,17 @@ extern "C" void callback_onBoardButton_BUTTON_MULTIPLE_CLICK_3(void *arg, void *
     }
     else {
         // YAMAHA Receiver
-        rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x0976); // "BD/DVD Scene"
+        rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x007f); // "BD/DVD Scene"
         vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
         // Pioneer DVD Player
         rmtIr->transmitPioneerCommandFrame((uint8_t)0xa3, (uint8_t)0x99, (uint8_t)0xaf, (uint8_t)0xba); // "ON"
-        vTaskDelay(pdMS_TO_TICKS(200)); // delay 0.05 seconds
+        vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 seconds
         rmtIr->transmitPioneerCommandFrame((uint8_t)0xa3, (uint8_t)0x99, (uint8_t)0xaf, (uint8_t)0xb6); // "OPEN/CLOSE"
         vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
         // Panasonic TV
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x7c); // "Power On"
-        vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
-        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xa0); // "AV" (HDMI1)
-        vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
-        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x92); // "OK"
+        vTaskDelay(pdMS_TO_TICKS(4000)); // delay 4 seconds
+        rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x40); // "AV2"
     }
 }
 
@@ -127,7 +125,7 @@ extern "C" void callback_onBoardButton_BUTTON_LONG_PRESS_START_1000(void *arg, v
         switchAllOff(rmtIr);
     }
     else {
-        rmtIr->transmitNecCommandFrame((uint16_t)0x7e81, (uint16_t)0x2ad5); // "Power 0/1"
+        rmtIr->transmitNecCommandFrame((uint16_t)0x7e81, (uint16_t)0x7e81); // "Power On"
         vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
         rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x16e9); // "Tuner"
     }
@@ -144,14 +142,15 @@ extern "C" void app_main(void)
     /* Initialize RmtIr class */
     ESP_LOGI(tag, "RmtIr");
     RmtIr* rmtIr = &rmtIr->getInstance(); // get the Singleton instance
-    rmtIr->setGpioPins(32,0); // set the GPIO pins: external IR emitter, no IR receiver
-    //rmtIr->setGpioPins(12,26); // set the GPIO pins: internal IR emitter, external IR receiver
+    rmtIr->setGpioPins(4,0); // set the GPIO pins for ESP32C3 Supermini: external IR emitter, no IR receiver
+    //rmtIr->setGpioPins(32,0); // set the GPIO pins for M5ATOM LITE: external IR emitter, no IR receiver
+    //rmtIr->setGpioPins(12,26); // set the GPIO pins for M5ATOM LITE: internal IR emitter, external IR receiver
     rmtIr->initialize(); // initialize RMT IR
 
     GenericButton onBoardButton(
 	    std::string("onBoardButton"),
-	    /* M5 Atom Lite */
-	    (gpio_num_t) 39, // GPIO
+	    (gpio_num_t) 9, // GPIO  ESP32C3 Supermini
+	    // (gpio_num_t) 39, // GPIO  M5 Atom Lite
 	    0, // active = DOWN
 	    true, // pull disabled - M5 Atom does not support internal PU/PD on this gpio
 	    std::string("GPIO")
