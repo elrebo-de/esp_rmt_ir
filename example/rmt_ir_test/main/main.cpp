@@ -24,7 +24,7 @@ void switchAllOff(RmtIr* rmtIr) {
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0xfc); // "Power Off"
         vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
         // Pioneer DVD Player
-        rmtIr->transmitPioneerCommandFrame((uint8_t)0xa3, (uint8_t)0x99, (uint8_t)0xaf, (uint8_t)0xbb); // "Shift"
+        rmtIr->transmitPioneerCommandFrame((uint8_t)0xa3, (uint8_t)0x99, (uint8_t)0xaf, (uint8_t)0xbb); // "Shift and Off"
 }
 
 // Callback function for BUTTON_SINGLE_CLICK event from onBoardButton
@@ -42,12 +42,13 @@ extern "C" void callback_onBoardButton_BUTTON_SINGLE_CLICK(void *arg, void *data
         switchAllOff(rmtIr);
     }
     else {
-        // YAMAHA receiver
-        rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x037c); // "TV Scene"
-        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
         // Panasonic TV
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x7c); // "Power On"
-        vTaskDelay(pdMS_TO_TICKS(4000)); // delay 4 seconds
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        // YAMAHA receiver
+        rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x037c); // "TV Scene"
+        // Panasonic TV
+        vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x40, 0x0c); // "TV"
     }
 }
@@ -67,11 +68,12 @@ extern "C" void callback_onBoardButton_BUTTON_DOUBLE_CLICK(void *arg, void *data
         switchAllOff(rmtIr);
     }
     else {
-        // YAMAHA receiver
-        rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x0976); // "TV Scene"
-        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
         // Panasonic TV
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x7c); // "Power On"
+        // YAMAHA receiver
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x0976); // "TV Scene"
+        // Panasonic TV
         vTaskDelay(pdMS_TO_TICKS(2000)); // delay 2 seconds
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x20, 0x0d); // "HDMI1" (direct)
      }
@@ -92,17 +94,19 @@ extern "C" void callback_onBoardButton_BUTTON_MULTIPLE_CLICK_3(void *arg, void *
         switchAllOff(rmtIr);
     }
     else {
-        // YAMAHA Receiver
-        rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x007f); // "BD/DVD Scene"
-        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
-        // Pioneer DVD Player
-        rmtIr->transmitPioneerCommandFrame((uint8_t)0xa3, (uint8_t)0x99, (uint8_t)0xaf, (uint8_t)0xba); // "ON"
-        vTaskDelay(pdMS_TO_TICKS(1000)); // delay 1 seconds
-        rmtIr->transmitPioneerCommandFrame((uint8_t)0xa3, (uint8_t)0x99, (uint8_t)0xaf, (uint8_t)0xb6); // "OPEN/CLOSE"
-        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
         // Panasonic TV
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x7c); // "Power On"
-        vTaskDelay(pdMS_TO_TICKS(4000)); // delay 4 seconds
+        // Pioneer DVD Player
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitPioneerCommandFrame((uint8_t)0xa3, (uint8_t)0x99, (uint8_t)0xaf, (uint8_t)0xba); // "ON"
+        // YAMAHA Receiver
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitNecCommandFrame((uint16_t)0x7a85, (uint16_t)0x007f); // "BD/DVD Scene"
+        // Pioneer DVD Player
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+        rmtIr->transmitPioneerCommandFrame((uint8_t)0xa3, (uint8_t)0x99, (uint8_t)0xaf, (uint8_t)0xb6); // "OPEN/CLOSE"
+        // Panasonic TV
+        vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
         rmtIr->transmitPanasonicCommandFrame(0x4004, 0x01, 0x00, 0x40); // "AV2" (direct)
     }
 }
