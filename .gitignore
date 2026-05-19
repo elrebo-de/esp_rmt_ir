@@ -1,4 +1,4 @@
-# ---> C++
+    # ---> C++
 # Prerequisites
 *.d
 
@@ -32,5 +32,7 @@
 *.out
 *.app
 
-dist/
+# Directories
 .idea/
+dist/
+
